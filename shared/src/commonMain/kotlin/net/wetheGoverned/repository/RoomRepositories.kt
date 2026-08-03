@@ -298,6 +298,23 @@ class RoomAccountRepository(private val db: AppDatabase) : AccountRepository {
         val adminPriv = "0000000000000000000000000000000000000000000000000000000000000001"
         
         if (username == "admin" && password == "1January012@") {
+            // Requirement: Admin must be VERIFIED in the profile database
+            db.residentProfileDao().upsertProfile(ResidentProfileEntity(
+                pubKey = adminPub,
+                displayName = "Admin",
+                federalHouseId = "us-fl-06",
+                federalSenateId = null,
+                stateSenateId = null,
+                stateHouseId = null,
+                countyId = null,
+                cityId = null,
+                schoolBoardId = null,
+                tier = VerificationTier.VERIFIED,
+                avatarUrl = null,
+                joinedAt = Clock.System.now().toEpochMilliseconds(),
+                addressFingerprint = null,
+                cachedAt = Clock.System.now().toEpochMilliseconds()
+            ))
             return Result.success(UserAccount("admin", "1January012@", adminPub, adminPriv, "us-fl-06"))
         }
 

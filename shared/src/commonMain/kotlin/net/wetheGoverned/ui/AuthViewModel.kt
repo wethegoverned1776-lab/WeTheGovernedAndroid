@@ -121,7 +121,7 @@ open class AuthViewModel(
                 // Fetch profile to determine tier
                 val profile = residentRepository.getProfile(account.pubKey).getOrNull()
                 
-                // ERR_FIX: Ensure hardcoded admin is always VERIFIED if profile not found
+                // ERR_FIX: Explicitly ensure 'admin' user is VERIFIED if profile not yet loaded or missing
                 val tier = if (username == "admin") VerificationTier.VERIFIED 
                           else profile?.tier ?: VerificationTier.OBSERVER
 
