@@ -33,8 +33,10 @@ android {
         isCoreLibraryDesugaringEnabled = true
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        }
     }
 
     buildFeatures {
@@ -92,10 +94,10 @@ dependencies {
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     
     // Database (Room)
-    val roomVersion = "2.6.1"
-    implementation("androidx.room:room-runtime:$roomVersion")
-    implementation("androidx.room:room-ktx:$roomVersion")
-    ksp("androidx.room:room-compiler:$roomVersion")
+    val roomVersion = "3.0.1"
+    implementation("androidx.room3:room3-runtime:$roomVersion")
+    ksp("androidx.room3:room3-compiler:$roomVersion")
+    implementation("androidx.sqlite:sqlite-bundled:2.7.0")
 
     // Networking (Ktor Client & Server)
     val ktorVersion = "2.3.12"

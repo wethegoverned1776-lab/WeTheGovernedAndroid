@@ -6,17 +6,26 @@ import net.wetheGoverned.repository.*
 import net.wetheGoverned.session.SessionManager
 import net.wetheGoverned.remote.api.CivicApi
 import net.wetheGoverned.remote.api.WtgBackendApi
-import net.wetheGoverned.ui.location.LocationHelper
+import net.wetheGoverned.LocationHelper
 import javax.inject.Inject
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import dagger.hilt.android.EntryPointAccessors
+
+import androidx.compose.runtime.LaunchedEffect
+import net.wetheGoverned.data.P2PSyncEngine
 
 @Composable
 fun VerifiedNetworkApp() {
     val context = LocalContext.current
     val entryPoint = remember(context) {
         EntryPointAccessors.fromApplication(context, AppEntryPoint::class.java)
+    }
+
+    val syncEngine = remember { entryPoint.syncEngine() }
+    
+    LaunchedEffect(Unit) {
+        syncEngine.start()
     }
 
     App(
@@ -52,4 +61,5 @@ interface AppEntryPoint {
     fun wtgBackendApi(): WtgBackendApi
     fun locationHelper(): LocationHelper
     fun relayManager(): net.wetheGoverned.data.NostrRelayManager
+    fun syncEngine(): P2PSyncEngine
 }

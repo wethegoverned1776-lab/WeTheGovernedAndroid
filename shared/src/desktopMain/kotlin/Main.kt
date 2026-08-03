@@ -14,8 +14,10 @@ import io.ktor.serialization.kotlinx.json.*
 import io.ktor.http.*
 import net.wetheGoverned.App
 import net.wetheGoverned.data.*
+import net.wetheGoverned.data.local.*
 import net.wetheGoverned.repository.*
 import net.wetheGoverned.session.SessionManager
+import net.wetheGoverned.session.DesktopSessionStorage
 import net.wetheGoverned.remote.api.WtgBackendApi
 import java.io.File
 import androidx.compose.ui.res.painterResource
@@ -49,7 +51,6 @@ fun main() {
             "wss://nostr.mom",
             "wss://atlas.nostr.land",
             "wss://bitcoiner.social",
-            "wss://relay.nostr.band",
             "wss://purplepag.es",
             "wss://no.str.cr"
         )
@@ -70,17 +71,23 @@ fun main() {
             )
         }
 
-        // Core Repositories
-        val voteRepository: VoteRepository = remember { DesktopVoteRepository(publisher) }
-        val pollRepository: PollRepository = remember { DesktopPollRepository(publisher) }
-        val residentRepository: ResidentRepository = remember { DesktopResidentRepository(publisher) }
-        val manifestoRepository: ManifestoRepository = remember { DesktopManifestoRepository() }
-        val scorecardRepository: ScorecardRepository = remember { DesktopScorecardRepository() }
-        val communityRepository: CommunityRepository = remember { DesktopCommunityRepository(publisher) }
-        val districtRepository: DistrictRepository = remember { DesktopDistrictRepository() }
-        val accountRepository: AccountRepository = remember { DesktopAccountRepository() }
-        val requestRepository: VerificationRequestRepository = remember { DesktopVerificationRequestRepository() }
+        // Initialize Room Database
+        val databaseBuilder = remember { getDatabaseBuilder() }
+        val database = remember { getRoomDatabase(databaseBuilder) }
+
+        // Core Repositories (Room-based)
+        val voteRepository: VoteRepository = remember { RoomVoteRepository(database) }
+        val pollRepository: PollRepository = remember { RoomPollRepository(database, publisher) }
+        val residentRepository: ResidentRepository = remember { RoomResidentRepository(database, publisher) }
+        val communityRepository: CommunityRepository = remember { RoomCommunityRepository(database, publisher) }
+        val accountRepository: AccountRepository = remember { RoomAccountRepository(database) }
+        val requestRepository: VerificationRequestRepository = remember { RoomVerificationRequestRepository(database) }
+        val scorecardRepository: ScorecardRepository = remember { RoomScorecardRepository(database) }
+        val manifestoRepository: ManifestoRepository = remember { RoomManifestoRepository(database) }
+        val districtRepository: DistrictRepository = remember { RoomDistrictRepository(database) }
         
+        val meshDiscoveryManager = remember { DesktopMeshDiscoveryManager(sessionManager, publisher, relayManager) }
+
         val p2pSyncEngine = remember {
             P2PSyncEngine(
                 pollRepository, residentRepository, voteRepository,
@@ -91,6 +98,10 @@ fun main() {
 
         LaunchedEffect(Unit) {
             p2pSyncEngine.start()
+            meshDiscoveryManager.discoverPeers()
+            sessionManager.currentSession?.districtId?.let { districtId ->
+                meshDiscoveryManager.registerService(8888, districtId)
+            }
         }
 
         Tray(

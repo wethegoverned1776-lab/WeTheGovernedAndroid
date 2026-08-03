@@ -11,6 +11,8 @@ import net.wetheGoverned.ui.HomeViewModel
 import net.wetheGoverned.ui.PollViewModel
 import net.wetheGoverned.ui.ResidentProfileViewModel
 
+import net.wetheGoverned.ui.*
+
 @Module
 @InstallIn(ViewModelComponent::class)
 object ViewModelModule {
@@ -39,4 +41,27 @@ object ViewModelModule {
         sessionManager: SessionManager,
         requestRepository: VerificationRequestRepository,
     ): ResidentProfileViewModel = ResidentProfileViewModel(residentRepository, accountRepository, sessionManager, requestRepository)
+
+    @Provides
+    @ViewModelScoped
+    fun provideManifestoViewModel(
+        manifestoRepository: ManifestoRepository,
+        pollRepository: PollRepository,
+        sessionManager: SessionManager
+    ): ManifestoViewModel = ManifestoViewModel(manifestoRepository, pollRepository, sessionManager)
+
+    @Provides
+    @ViewModelScoped
+    fun provideScorecardViewModel(
+        scorecardRepository: ScorecardRepository,
+        sessionManager: SessionManager
+    ): ScorecardViewModel = ScorecardViewModel(scorecardRepository, sessionManager)
+
+    @Provides
+    @ViewModelScoped
+    fun provideCommunityBoardViewModel(
+        communityRepository: CommunityRepository,
+        sessionManager: SessionManager
+    ): CommunityBoardViewModel = CommunityBoardViewModel(communityRepository, sessionManager)
 }
+

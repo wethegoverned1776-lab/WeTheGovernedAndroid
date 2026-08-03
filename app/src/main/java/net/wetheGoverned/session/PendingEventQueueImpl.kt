@@ -1,7 +1,7 @@
 package net.wetheGoverned.session
 
-import net.wetheGoverned.local.dao.PendingEventDao
-import net.wetheGoverned.local.entity.PendingCivicEventEntity
+import net.wetheGoverned.data.local.dao.PendingEventDao
+import net.wetheGoverned.data.local.entity.PendingCivicEventEntity
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -9,6 +9,7 @@ import javax.inject.Singleton
 class AndroidPendingEventQueue @Inject constructor(
     private val pendingEventDao: PendingEventDao
 ) : PendingEventQueue {
+
     override suspend fun enqueue(kind: Int, contentJson: String, sig: String) {
         val entity = PendingCivicEventEntity(
             eventId = "pend_${System.currentTimeMillis()}",
