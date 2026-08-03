@@ -23,7 +23,7 @@
     - **UI:** Jetpack Compose Multiplatform (Centered layout, X-style aesthetic)
     - **Networking:** Ktor 3.0.0-rc-1 (WebSockets)
     - **Cryptography:** Custom BIP-340 Schnorr Signer (Pure Kotlin for Wasm/JVM compatibility)
-    - **Storage:** Room (Planned), LocalStorage (Web), Preferences (Desktop)
+    - **Storage:** Room 3.0 (KMP) with platform-specific drivers (OPFS for Web, Bundled for Android/PC)
 
 ## 2. High-Level App Workflow
 ```mermaid
@@ -83,7 +83,7 @@ WETHEGOVERNED/
 - **Dependency Injection:** Hilt (Android), Manual DI / Factory pattern (Shared/Desktop/Web).
 - **Navigation:** Jetpack Compose Navigation (Shared routes in `App.kt`).
 - **UI Layer:** 100% Jetpack Compose Multiplatform. Shared "X-style" aesthetic (Dim grey, Tertiary Blue).
-- **Data Layer:** Repository pattern with separate implementations for Desktop (Preferences), Android (Room), and Web (LocalStorage).
+- **Data Layer:** Repository pattern with unified Room 3.0 implementations in `commonMain`. Platform-specific stubs for non-migrated features.
 - **Key Design Patterns:** Observer (StateFlow), Singleton (RelayManager), Strategy (Platform-specific Repositories).
 
 ## 5. Important Packages & Their Responsibilities
@@ -991,7 +991,7 @@ class NostrRelayManager(
         if (rtt > 1000) score -= 20
         if (rtt > 2000) score -= 40
         if (info == null) score -= 30
-        if (info?.limitation?.payment_required == true) score -= 50
+        if (info?.hint?.payment_required == true) score -= 50
         return score.coerceAtLeast(0)
     }
 
@@ -1987,488 +1987,908 @@ class DesktopPollRepository(private val publisher: CivicPublisher? = null) : Pol
 ```
 
 ```kotlin
-// FILE: shared/src/wasmJsMain/kotlin/net/wetheGoverned/core/Secp256k1.wasm.kt
-package net.wetheGoverned.core
+// FILE: shared/src/commonMain/kotlin/net/wetheGoverned/App.kt
+package net.wetheGoverned
 
-@JsName("BigInt")
-private external fun jsBigInt(s: String): JsAny
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import kotlinx.coroutines.withContext
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import net.wetheGoverned.repository.*
+import net.wetheGoverned.session.SessionManager
+import net.wetheGoverned.ui.*
+import net.wetheGoverned.ui.home.HomeScreen
+import net.wetheGoverned.remote.api.CivicApi
+import net.wetheGoverned.remote.api.WtgBackendApi
+import net.wetheGoverned.LocationHelper
+import net.wetheGoverned.ui.components.USFlagBackground
+import net.wetheGoverned.ui.WelcomeScreen
+import androidx.compose.foundation.layout.Box
+import net.wetheGoverned.ui.community.CommunityBoardScreen
 
-actual class CivicBigInt(val value: JsAny) {
-    actual companion object {
-        actual val ZERO = fromLong(0)
-        actual val ONE = fromLong(1)
-        actual val TWO = fromLong(2)
-        actual val THREE = fromLong(3)
-        actual val SECP256K1_N = fromHex("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141")
-        actual val SECP256K1_P = fromHex("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F")
-        actual fun fromHex(hex: String) = CivicBigInt(jsBigInt("0x$hex"))
-        actual fun fromLong(long: Long) = CivicBigInt(jsBigInt(long.toString()))
-        actual fun fromByteArray(bytes: ByteArray): CivicBigInt {
-            val hex = bytes.joinToString("") { (it.toInt() and 0xFF).toString(16).padStart(2, '0') }
-            return fromHex(hex)
-        }
-    }
-    actual fun add(other: CivicBigInt) = CivicBigInt(jsAdd(value, other.value))
-    actual fun subtract(other: CivicBigInt) = CivicBigInt(jsSubtract(value, other.value))
-    actual fun multiply(other: CivicBigInt) = CivicBigInt(jsMultiply(value, other.value))
-    actual fun mod(m: CivicBigInt) = CivicBigInt(jsMod(value, m.value))
-    actual fun modInverse(m: CivicBigInt) = CivicBigInt(jsModInverse(value, m.value))
-    actual fun modPow(exponent: CivicBigInt, m: CivicBigInt) = CivicBigInt(jsModPow(value, exponent.value, m.value))
-    actual fun toHex() = jsToHex(value).padStart(64, '0')
-    actual fun toByteArray(length: Int): ByteArray {
-        val hex = toHex()
-        val res = ByteArray(length)
-        val start = if (hex.length > length * 2) hex.length - length * 2 else 0
-        for (i in 0 until (hex.length - start) / 2) {
-            val s = hex.substring(start + i * 2, start + i * 2 + 2)
-            res[length - ((hex.length - start) / 2) + i] = s.toInt(16).toByte()
-        }
-        return res
-    }
-    actual fun isEven() = jsIsEven(value)
-    actual fun compareTo(other: CivicBigInt) = jsCompare(value, other.value)
-    actual override fun equals(other: Any?): Boolean {
-        if (other !is CivicBigInt) return false
-        return jsCompare(value, other.value) == 0
-    }
-    override fun hashCode() = toHex().hashCode()
+object SharedRoutes {
+    const val WELCOME = "welcome"
+    const val AUTH = "auth"
+    const val CHANGE_PASSWORD = "change_password"
+    const val ONBOARDING = "onboarding"
+    const val HOME = "home"
+    const val POLL_DETAIL = "poll/{pollId}"
+    const val PROFILE = "profile/{pubKey}"
+    const val JURISDICTION_SELECT = "jurisdictions"
+    const val METRICS = "metrics"
+    const val MANIFESTOS = "manifestos"
+    const val MANIFESTO_DETAIL = "manifesto/{manifestoId}"
+    const val CREATE_POLL = "create_poll"
+    const val SCORECARD = "scorecard"
+    const val DISCUSSION = "poll/{pollId}/discussion/{optionId}"
+    const val POST_DETAIL = "post/{postId}"
+    const val VERIFICATION = "verification"
+    const val GOVERNANCE = "governance"
+    const val COMMUNITY_HUB = "community_hub"
+    const val NETWORK_REGISTRATION = "network_registration"
+    
+    fun pollDetail(id: String) = "poll/$id"
+    fun profile(pubKey: String) = "profile/$pubKey"
+    fun manifestoDetail(id: String) = "manifesto/$id"
+    fun discussion(pollId: String, optionId: String) = "poll/$pollId/discussion/$optionId"
+    fun postDetail(postId: String) = "post/$postId"
 }
 
-private fun jsAdd(a: JsAny, b: JsAny): JsAny = js("a + b")
-private fun jsSubtract(a: JsAny, b: JsAny): JsAny = js("a - b")
-private fun jsMultiply(a: JsAny, b: JsAny): JsAny = js("a * b")
-private fun jsMod(a: JsAny, b: JsAny): JsAny = js("(a % b + b) % b")
-private fun jsModInverse(a: JsAny, m: JsAny): JsAny = js("{\n    let m0 = m;\n    let y = 0n, x = 1n;\n    if (m === 1n) return 0n;\n    let aa = a;\n    let mm = m;\n    while (aa > 1n) {\n        let q = aa / mm;\n        let t = mm;\n        mm = aa % mm;\n        aa = t;\n        t = y;\n        y = x - q * y;\n        x = t;\n    }\n    if (x < 0n) x += m0;\n    return x;\n}")
-private fun jsModPow(base: JsAny, exp: JsAny, m: JsAny): JsAny = js("{\n    if (m === 1n) return 0n;\n    let res = 1n;\n    let b = base % m;\n    let e = exp;\n    while (e > 0n) {\n        if (e % 2n === 1n) res = (res * b) % m;\n        e = e / 2n;\n        b = (b * b) % m;\n    }\n    return res;\n}")
-private fun jsToHex(a: JsAny): String = js("a.toString(16)")
-private fun jsIsEven(a: JsAny): Boolean = js("a % 2n === 0n")
-private fun jsCompare(a: JsAny, b: JsAny): Int = js("a < b ? -1 : (a > b ? 1 : 0)")
+// Force Rebuild Trigger: V2.1
+@Composable
+fun App(
+    pollRepository: PollRepository,
+    accountRepository: AccountRepository,
+    residentRepository: ResidentRepository,
+    manifestoRepository: ManifestoRepository,
+    scorecardRepository: ScorecardRepository,
+    districtRepository: DistrictRepository, // Added
+    communityRepository: CommunityRepository,
+    requestRepository: VerificationRequestRepository,
+    sessionManager: SessionManager,
+    civicApi: CivicApi,
+    backendApi: WtgBackendApi,
+    locationHelper: LocationHelper,
+    relayManager: net.wetheGoverned.data.NostrRelayManager,
+) {
+    val navController = rememberNavController()
 
-actual fun CivicBigInt.divideByTwo(): CivicBigInt = CivicBigInt(jsDivideByTwo(this.value))
-private fun jsDivideByTwo(a: JsAny): JsAny = js("a / 2n")
+    val authViewModel = remember { AuthViewModel(accountRepository, sessionManager, residentRepository) }
+    val onboardingViewModel = remember { OnboardingViewModel(civicApi, backendApi, sessionManager, locationHelper) }
+    val homeViewModel = remember { HomeViewModel(pollRepository, residentRepository, sessionManager, relayManager) }
+    val pollDetailViewModel = remember { PollDetailViewModel(pollRepository, residentRepository, sessionManager) }
+    val manifestoViewModel = remember { ManifestoViewModel(manifestoRepository, pollRepository, sessionManager) }
+    val profileViewModel = remember { ResidentProfileViewModel(residentRepository, accountRepository, sessionManager, requestRepository) }
+    val pollViewModel = remember { PollViewModel(pollRepository, sessionManager) }
+    val scorecardViewModel = remember { ScorecardViewModel(scorecardRepository, sessionManager) }
+    val discussionViewModel = remember { PollDiscussionViewModel(pollRepository, sessionManager) }
+    val postDetailViewModel = remember { PollPostDetailViewModel(pollRepository, sessionManager) }
+    val tierVerificationViewModel = remember {
+        TierVerificationViewModel(residentRepository, sessionManager, accountRepository, civicApi)
+    }
+    val communityBoardViewModel = remember {
+        CommunityBoardViewModel(communityRepository, sessionManager)
+    }
+    val networkRegViewModel = remember {
+        NetworkRegistrationViewModel(accountRepository, residentRepository, sessionManager)
+    }
+
+    // Auto-navigate and refresh data if session exists
+    LaunchedEffect(Unit) {
+        // ERR_010 FIX: Move to background dispatcher
+        withContext(kotlinx.coroutines.Dispatchers.Default) {
+            civicApi.refreshDistrictRegistry()
+        }
+
+        val session = sessionManager.currentSession
+        if (session != null) {
+            onboardingViewModel.refreshStep() // Synchronize onboarding state
+            if (session.districtId == null) {
+                navController.navigate(SharedRoutes.ONBOARDING) {
+                    popUpTo(SharedRoutes.WELCOME) { inclusive = true }
+                }
+            } else {
+                navController.navigate(SharedRoutes.HOME) {
+                    popUpTo(SharedRoutes.WELCOME) { inclusive = true }
+                }
+            }
+        }
+    }
+
+    MaterialTheme(
+        colorScheme = lightColorScheme(
+            primary = Color.Black,
+            onPrimary = Color.White,
+            primaryContainer = Color(0xFFF0F0F0), // Subtle light grey for focus
+            onPrimaryContainer = Color.Black,
+            background = Color.White,
+            onBackground = Color.Black,
+            surface = Color.White,
+            onSurface = Color.Black,
+            surfaceVariant = Color(0xFFF7F9F9), // Lightest grey for card backgrounds
+            onSurfaceVariant = Color(0xFF536471), // Dimmer grey for secondary text
+            outline = Color(0xFFCFD9DE), // Dark grey borders (X style)
+            secondary = Color(0xFF536471),
+            secondaryContainer = Color(0xFFEFF3F4), // Slightly darker grey for state/local cards
+            onSecondaryContainer = Color(0xFF0F1419),
+            tertiary = Color(0xFF1D9BF0), // Classic X Blue for links/actions
+            tertiaryContainer = Color(0xFFD6EBF7), // Very light blue for federal highlights
+            onTertiaryContainer = Color(0xFF001D35),
+            error = Color(0xFFF4212E), // Red for alerts/errors
+        ),
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = Color.White,
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                // USFlagBackground(alpha = 0.15f) // Disabled for clean X-style look
+
+                NavHost(
+                    navController = navController,
+                    startDestination = SharedRoutes.WELCOME,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    composable(SharedRoutes.WELCOME) {
+                        WelcomeScreen(
+                            onGetStarted = {
+                                navController.navigate(SharedRoutes.AUTH)
+                            }
+                        )
+                    }
+
+                    composable(SharedRoutes.AUTH) {
+                        AuthScreen(
+                            viewModel = authViewModel,
+                            onAuthenticated = {
+                                homeViewModel.refreshSession()
+                                onboardingViewModel.refreshStep()
+                                val session = sessionManager.currentSession
+                                val isGuest = session?.pubKey == "guest_observer_hex"
+                                
+                                if (session?.districtId == null && !isGuest) {
+                                    navController.navigate(SharedRoutes.ONBOARDING) {
+                                        popUpTo(SharedRoutes.AUTH) { inclusive = true }
+                                    }
+                                } else {
+                                    navController.navigate(SharedRoutes.HOME) {
+                                        popUpTo(SharedRoutes.AUTH) { inclusive = true }
+                                    }
+                                }
+                            },
+                            onNavigateToChangePassword = {
+                                navController.navigate(SharedRoutes.CHANGE_PASSWORD)
+                            },
+                            onBack = {
+                                authViewModel.reset()
+                                navController.navigate(SharedRoutes.WELCOME) {
+                                    popUpTo(SharedRoutes.WELCOME) { inclusive = true }
+                                }
+                            }
+                        )
+                    }
+
+                    composable(SharedRoutes.CHANGE_PASSWORD) {
+                        ChangePasswordScreen(
+                            viewModel = authViewModel,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+
+                    composable(SharedRoutes.ONBOARDING) {
+                        OnboardingScreen(
+                            viewModel = onboardingViewModel,
+                            onOnboardingComplete = {
+                                homeViewModel.refreshSession()
+                                navController.navigate(SharedRoutes.HOME) {
+                                    popUpTo(SharedRoutes.ONBOARDING) { inclusive = true }
+                                }
+                            },
+                            onLogout = {
+                                authViewModel.reset()
+                                onboardingViewModel.reset()
+                                navController.navigate(SharedRoutes.WELCOME) {
+                                    popUpTo(SharedRoutes.WELCOME) { inclusive = true }
+                                }
+                            }
+                        )
+                    }
+
+                    composable(SharedRoutes.HOME) {
+                        MainDashboard(
+                            viewModel = homeViewModel,
+                            onNavigateToPoll = { id -> navController.navigate(SharedRoutes.pollDetail(id)) },
+                            onNavigateToDistrictSelection = { navController.navigate(SharedRoutes.JURISDICTION_SELECT) },
+                            onNavigateToManifestos = { navController.navigate(SharedRoutes.MANIFESTOS) },
+                            onNavigateToMetrics = { navController.navigate(SharedRoutes.METRICS) },
+                            onNavigateToProfile = { pubKey -> navController.navigate(SharedRoutes.profile(pubKey)) },
+                            onNavigateToCommunityHub = { navController.navigate(SharedRoutes.COMMUNITY_HUB) },
+                            onNavigateToVerification = { navController.navigate(SharedRoutes.VERIFICATION) },
+                            onCreatePoll = { navController.navigate(SharedRoutes.CREATE_POLL) },
+                            onLogout = {
+                                authViewModel.reset()
+                                onboardingViewModel.reset()
+                                navController.navigate(SharedRoutes.WELCOME) {
+                                    popUpTo(SharedRoutes.HOME) { inclusive = true }
+                                }
+                            }
+                        )
+                    }
+
+                    composable(SharedRoutes.JURISDICTION_SELECT) {
+                        DistrictSelectionScreen(
+                            onDistrictSelected = { id, name ->
+                                authViewModel.onDistrictSelected(id, name)
+                                homeViewModel.selectDistrict(id, name)
+                                profileViewModel.onUpdateDistrict(id)
+                                navController.popBackStack()
+                            },
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+
+                    composable(
+                        route = SharedRoutes.POLL_DETAIL,
+                        arguments = listOf(navArgument("pollId") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val pollId = backStackEntry.arguments?.getString("pollId") ?: return@composable
+                        PollDetailScreen(
+                            pollId = pollId,
+                            viewModel = pollDetailViewModel,
+                            onBack = { navController.popBackStack() },
+                            onNavigateToDiscussion = { pId, oId -> 
+                                navController.navigate(SharedRoutes.discussion(pId, oId))
+                            }
+                        )
+                    }
+
+                    composable(
+                        route = SharedRoutes.DISCUSSION,
+                        arguments = listOf(
+                            navArgument("pollId") { type = NavType.StringType },
+                            navArgument("optionId") { type = NavType.StringType }
+                        )
+                    ) { backStackEntry ->
+                        val pollId = backStackEntry.arguments?.getString("pollId") ?: return@composable
+                        val optionId = backStackEntry.arguments?.getString("optionId") ?: return@composable
+                        PollDiscussionScreen(
+                            pollId = pollId,
+                            optionId = optionId,
+                            viewModel = discussionViewModel,
+                            onBack = { navController.popBackStack() },
+                            onNavigateToPost = { postId ->
+                                navController.navigate(SharedRoutes.postDetail(postId))
+                            }
+                        )
+                    }
+
+                    composable(
+                        route = SharedRoutes.POST_DETAIL,
+                        arguments = listOf(navArgument("postId") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val postId = backStackEntry.arguments?.getString("postId") ?: return@composable
+                        PollPostDetailScreen(
+                            postId = postId,
+                            viewModel = postDetailViewModel,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+
+                    composable(SharedRoutes.METRICS) {
+                        ScorecardScreen(
+                            viewModel = scorecardViewModel,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+
+                    composable(SharedRoutes.SCORECARD) {
+                        ScorecardScreen(
+                            viewModel = scorecardViewModel,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+
+                    composable(SharedRoutes.MANIFESTOS) {
+                        ManifestoListScreen(
+                            viewModel = manifestoViewModel,
+                            onBack = { navController.popBackStack() },
+                            onManifestoClick = { id -> navController.navigate(SharedRoutes.manifestoDetail(id)) }
+                        )
+                    }
+
+                    composable(
+                        route = SharedRoutes.MANIFESTO_DETAIL,
+                        arguments = listOf(navArgument("manifestoId") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val manifestoId = backStackEntry.arguments?.getString("manifestoId") ?: return@composable
+                        ManifestoDetailScreen(
+                            manifestoId = manifestoId,
+                            viewModel = manifestoViewModel,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+
+                    composable(SharedRoutes.CREATE_POLL) {
+                        CreatePollScreen(
+                            viewModel = pollViewModel,
+                            onBack = { navController.popBackStack() },
+                            onCreate = { pollId ->
+                                navController.navigate(SharedRoutes.pollDetail(pollId)) {
+                                    popUpTo(SharedRoutes.CREATE_POLL) { inclusive = true }
+                                }
+                            }
+                        )
+                    }
+                    
+                    composable(
+                        route = SharedRoutes.PROFILE,
+                        arguments = listOf(navArgument("pubKey") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val pubKey = backStackEntry.arguments?.getString("pubKey") ?: return@composable
+                        ResidentProfileScreen(
+                            pubKey = pubKey,
+                            viewModel = profileViewModel,
+                            onBack = { navController.popBackStack() },
+                            onUpgradeTier = { navController.navigate(SharedRoutes.VERIFICATION) },
+                            onNavigateToDistrictSelection = { navController.navigate(SharedRoutes.JURISDICTION_SELECT) },
+                            onNavigateToRegistration = { navController.navigate(SharedRoutes.NETWORK_REGISTRATION) },
+                            onLogout = {
+                                authViewModel.reset()
+                                onboardingViewModel.reset()
+                                navController.navigate(SharedRoutes.WELCOME) {
+                                    popUpTo(SharedRoutes.WELCOME) { inclusive = true }
+                                }
+                            }
+                        )
+                    }
+
+                    composable(SharedRoutes.NETWORK_REGISTRATION) {
+                        NetworkRegistrationScreen(
+                            viewModel = networkRegViewModel,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+
+                    composable(SharedRoutes.VERIFICATION) {
+                        TierVerificationScreen(
+                            viewModel = tierVerificationViewModel,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+
+                    composable(SharedRoutes.GOVERNANCE) {
+                        GovernanceDashboardScreen(
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+
+                    composable(SharedRoutes.COMMUNITY_HUB) {
+                        CommunityBoardScreen(
+                            viewModel = communityBoardViewModel,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
 ```
 
 ```kotlin
-// FILE: shared/src/commonMain/kotlin/net/wetheGoverned/model/CivicModels.kt
-package net.wetheGoverned.model
+// FILE: shared/src/commonMain/kotlin/net/wetheGoverned/ui/HomeViewModel.kt
+package net.wetheGoverned.ui
 
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
-import kotlinx.datetime.Clock
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import net.wetheGoverned.model.*
+import net.wetheGoverned.data.RelayStatus
+import net.wetheGoverned.repository.PollRepository
+import net.wetheGoverned.repository.ResidentRepository
+import net.wetheGoverned.session.SessionManager
 
-import kotlinx.serialization.json.Json
-
-val CivicJson = Json {
-    ignoreUnknownKeys = true
-    encodeDefaults = true
-    coerceInputValues = true
-    prettyPrint = false
-}
-
-@Serializable
-data class CivicEvent(
-    val id: String,
-    @SerialName("pubkey") val pubKey: String,
-    @SerialName("created_at") val createdAt: Long,
-    val kind: Int,
-    val tags: List<List<String>> = emptyList(),
-    val content: String,
-    val sig: String,
-)
-
-object CivicEventKind {
-    const val FEDERAL_POLL           = 30_098
-    const val STATE_POLL             = 30_099
-    const val DISTRICT_POLL          = 30_100
-    const val LOCAL_POLL             = 30_102
-    const val POLL_VOTE              = 30_101
-    const val IMPORTANCE_VOTE        = 30_103
-    const val REPRESENTATIVE_SCORE   = 30_200
-    const val MANIFESTO              = 30_300
-    const val METRIC_REPORT          = 30_400
-    const val RESIDENT_PROFILE       = 30_500
-    const val COMMUNITY_POST         = 30_600
-    const val VERIFICATION_REQUEST   = 30_700
-}
-
-@Serializable
-data class District(
-    val id: String,
-    val level: DistrictLevel = DistrictLevel.FEDERAL_HOUSE,
-    val state: String,
-    val districtNumber: Int? = null,
-    val name: String,
-    val displayName: String,
-    val representativeName: String? = null,
-    val representativeParty: String? = null,
-    val geoBoundaries: String? = null, // GeoJSON or similar
-)
-
-enum class VerificationTier {
-    OBSERVER, VERIFIED,
-}
-
-@Serializable
-data class CivicVote(
-    val id: String,
-    val pollId: String,
-    val voterPubKey: String,
-    val voterName: String,
-    val optionId: String,
-    val timestamp: Long,
-    val nonce: Long,
-    val signature: String? = null,
-    val isFlagged: Boolean = false,
-    val flagReason: String? = null,
-    val disputeComment: String? = null,
-    val disputeExpiresAt: Long? = null,
-    val status: ConflictStatus = ConflictStatus.NONE,
-    val createdAt: Long = Clock.System.now().toEpochMilliseconds()
-)
-
-enum class ConflictStatus { NONE, FLAGGED, DISPUTED, RESOLVED }
-
-enum class PollStatus { ACTIVE, CLOSED, ARCHIVED }
-
-enum class PollScope {
-    DASHBOARD, // For the "My Dashboard" view
-    FEDERAL, 
-    STATE, 
-    DISTRICT,
-    LOCAL,
-    ALL_POLLS,
-    REPRESENTATIVES,
-    RESULTS
-}
-
-enum class DistrictLevel {
-    FEDERAL_HOUSE,
-    FEDERAL_SENATE,
-    STATE_SENATE,
-    STATE_HOUSE,
-    COUNTY,
-    CITY,
-    SCHOOL_BOARD,
-    SPECIAL
-}
-
-typealias CivicScope = PollScope
-
-@Serializable
-data class RepresentativeScorecard(
-    val representativePubKey: String,
-    val districtId: String,
-    val scope: CivicScope = CivicScope.STATE,
+data class ElectedOfficial(
+    val office: String,
     val name: String,
     val party: String,
-    val overallScore: Int,
-    val categories: List<ScorecardCategory>,
-    val lastUpdated: Long,
+    val nextElection: String,
+    val districtId: String? = null,
+    val photoUrl: String? = null
 )
 
-@Serializable
-data class ScorecardCategory(
-    val name: String,
-    val officialValue: String,
-    val residentReportedValue: String?,
-    val score: Int,
-)
-
-@Serializable
-data class CandidateManifesto(
-    val id: String,
-    val candidatePubKey: String,
-    val districtId: String,
-    val scope: CivicScope = CivicScope.STATE,
-    val title: String,
-    val body: String,
-    val publishedAt: Long,
-    val questions: List<ManifestoQuestion>,
-)
-
-@Serializable
-data class ManifestoQuestion(
-    val id: String,
-    val askerPubKey: String,
-    val text: String,
-    val askedAt: Long,
-    val answer: String? = null,
-    val answeredAt: Long? = null,
-)
-
-enum class MetricSource { OFFICIAL, RESIDENT_REPORTED }
-
-@Serializable
-data class DistrictMetric(
-    val id: String,
-    val districtId: String,
-    val category: String,
-    val name: String,
-    val officialValue: String,
-    val residentValue: String?,
-    val unit: String,
-    val source: MetricSource,
-    val reportedAt: Long,
-    val reporterPubKey: String?,
-)
-
-@Serializable
-data class CommunityPost(
-    val id: String,
-    val authorPubKey: String,
-    val districtId: String,
-    val kind: CommunityPostKind,
-    val title: String,
-    val description: String,
-    val price: Double? = null,
-    val location: String? = null,
-    val contactInfo: String? = null,
-    val createdAt: Long = Clock.System.now().toEpochMilliseconds(),
-    val expiresAt: Long? = null,
-    val tags: List<String> = emptyList()
-)
-
-enum class CommunityPostKind {
-    MARKETPLACE, WORKSHOP, CLASS, JOB, GENERAL
-}
-
-@Serializable
-data class AddressResolution(
-    val address: String,
-    val federalDistrict: District? = null,
-    val stateUpperDistrict: District? = null,
-    val stateLowerDistrict: District? = null,
-    val localJurisdiction: String? = null,
-    val sources: List<String> = emptyList(),
-    val timestamp: Long = Clock.System.now().toEpochMilliseconds()
-)
-
-@Serializable
-data class VerificationRequest(
-    val id: String,
-    val requesterPubKey: String,
-    val requesterDisplayName: String,
-    val email: String,
-    val districtId: String,
-    val stateId: String,
-    val address: String,
-    val createdAt: Long = Clock.System.now().toEpochMilliseconds(),
-    val status: VerificationRequestStatus = VerificationRequestStatus.PENDING,
-    val handledByPubKey: String? = null
-)
-
-enum class VerificationRequestStatus {
-    PENDING, VERIFIED, CLOSED
-}
-```
-
-```kotlin
-// FILE: shared/src/commonMain/kotlin/net/wetheGoverned/session/SessionManager.kt
-package net.wetheGoverned.session
-
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import net.wetheGoverned.model.VerificationTier
-
-sealed class SessionEvent {
-    data class IdentityVerified(val proofToken: String) : SessionEvent()
-}
-
-data class UserSession(
-    val pubKey: String,
-    val displayName: String,
-    val districtId: String?, // Federal House ID (legacy name kept for compatibility)
-    val stateUpperId: String? = null, // State Senate
-    val stateLowerId: String? = null, // State House
-    val localId: String? = null, // County
+data class HomeUiState(
+    val federalId: String = "us",
+    val stateId: String? = null,
+    val federalHouseId: String? = null,
+    val stateSenateId: String? = null,
+    val stateHouseId: String? = null,
+    val countyId: String? = null,
     val cityId: String? = null,
     val schoolBoardId: String? = null,
-    val tier: VerificationTier = VerificationTier.OBSERVER,
-    val privateKey: String? = null
+    val federalHouseName: String = "US House District 6",
+    val stateSenateName: String = "State Senate District 7",
+    val stateHouseName: String = "State House District 19",
+    val countyName: String = "Flagler County",
+    val cityName: String = "Palm Coast",
+    val schoolBoardName: String = "Flagler School Board",
+    val localId: String? = null,
+    val districtDisplayName: String = "No District Assigned",
+    val username: String? = null,
+    val polls: List<CivicPoll> = emptyList(),
+    val filteredPolls: List<CivicPoll> = emptyList(),
+    val groupedPolls: Map<String, List<CivicPoll>> = emptyMap(),
+    val electedOfficials: List<ElectedOfficial> = emptyList(),
+    val searchQuery: String = "",
+    val selectedScope: PollScope = PollScope.DASHBOARD,
+    val isOtherDistrict: Boolean = false,
+    val isLoading: Boolean = false,
+    val isSyncing: Boolean = false,
+    val verificationTier: VerificationTier = VerificationTier.OBSERVER,
+    val districtsActive: Int = 0,
+    val pollsVoted: Int = 0,
+    val activeRelayStatuses: List<RelayStatus> = emptyList(),
+    val error: String? = null,
 )
 
-interface SessionStorage {
-    fun saveSession(session: UserSession)
-    fun getSession(): UserSession?
-    fun clearSession()
-    // Secure Key Storage Recommendations
-    fun savePrivateKeySecurely(key: String)
-    fun getPrivateKeySecurely(): String?
-}
+open class HomeViewModel(
+    private val pollRepository: PollRepository,
+    private val residentRepository: ResidentRepository,
+    private val sessionManager: SessionManager,
+    private val relayManager: net.wetheGoverned.data.NostrRelayManager
+) : ViewModel() {
 
-class SessionManager(private val storage: SessionStorage? = null) {
-    private val _session = MutableStateFlow<UserSession?>(storage?.getSession())
-    val session: StateFlow<UserSession?> = _session.asStateFlow()
+    private val _uiState = MutableStateFlow(HomeUiState())
+    val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-    var currentPubKey: String? = _session.value?.pubKey
-    val currentSession: UserSession? get() = _session.value
+    private var pollsJob: Job? = null
 
-    private val _events = MutableSharedFlow<SessionEvent>()
-    val events: SharedFlow<SessionEvent> = _events.asSharedFlow()
+    init {
+        refreshSession()
+        observeSyncStatus()
+    }
 
-    fun login(
-        pubKeyHex: String,
-        privateKeyHex: String? = null,
-        districtId: String?,
-        stateUpperId: String? = null,
-        stateLowerId: String? = null,
-        localId: String? = null,
-        cityId: String? = null,
-        schoolBoardId: String? = null,
-        tier: VerificationTier,
-        displayName: String
-    ) {
-        val session = UserSession(
-            pubKeyHex, displayName, districtId, stateUpperId, stateLowerId, 
-            localId, cityId, schoolBoardId, tier, privateKeyHex
-        )
-        currentPubKey = pubKeyHex
-        _session.value = session
-        storage?.saveSession(session)
+    private fun observeSyncStatus() {
+        relayManager.relayStatuses
+            .onEach { statuses ->
+                val syncing = statuses.values.any { it == RelayStatus.CONNECTED }
+                val topStatuses = statuses.values.take(12).toList()
+                _uiState.update { it.copy(
+                    isSyncing = syncing,
+                    activeRelayStatuses = topStatuses
+                ) }
+            }
+            .launchIn(viewModelScope)
+            
+        // Catch relay rejection events if possible (diagnostic)
+        relayManager.events
+            .onEach { event ->
+                // Basic check for sync activity
+            }
+            .launchIn(viewModelScope)
+    }
+
+    fun refreshSession() {
+        val session = sessionManager.currentSession
+        val fedHouseId = session?.districtId
+        val stateId = fedHouseId?.substringBeforeLast('-', "us") 
+        val isGuest = session?.pubKey == "guest_observer_hex"
+
+        val mockOfficials = if (fedHouseId != null) {
+            listOf(
+                ElectedOfficial("U.S. House (FL-06)", "Randy Fine", "Republican", "Nov 2024", fedHouseId),
+                ElectedOfficial("State Senate (Dist 7)", "Tom Leek", "Republican", "Nov 2024", session.stateUpperId),
+                ElectedOfficial("State House (Dist 19)", "Sam Greco", "Republican", "Nov 2024", session.stateLowerId),
+                ElectedOfficial("County Commissioner", "John Doe", "Non-Partisan", "Nov 2026", session.localId),
+                ElectedOfficial("City Council", "Jane Smith", "Non-Partisan", "Nov 2025", session.cityId),
+                ElectedOfficial("School Board", "District Z Rep", "Non-Partisan", "Nov 2024", session.schoolBoardId)
+            )
+        } else emptyList()
+
+        _uiState.update { 
+            it.copy(
+                username = sessionManager.currentPubKey,
+                federalId = "us",
+                stateId = stateId,
+                federalHouseId = fedHouseId,
+                stateSenateId = session?.stateUpperId,
+                stateHouseId = session?.stateLowerId,
+                countyId = session?.localId,
+                localId = session?.localId,
+                cityId = session?.cityId,
+                schoolBoardId = session?.schoolBoardId,
+                districtDisplayName = if (fedHouseId == null) "Select District" else "District $fedHouseId",
+                isOtherDistrict = isGuest || session?.tier == VerificationTier.OBSERVER,
+                verificationTier = session?.tier ?: VerificationTier.OBSERVER,
+                electedOfficials = mockOfficials,
+                districtsActive = if (fedHouseId != null) 6 else 0,
+                pollsVoted = 12
+            )
+        }
+        observePolls()
+    }
+
+    private fun observePolls() {
+        pollsJob?.cancel()
+        val state = _uiState.value
+        val hierarchyIds = if (state.federalHouseId == null) {
+            listOf("us")
+        } else {
+            listOfNotNull("us", state.stateId, state.federalHouseId, state.stateSenateId, state.stateHouseId, state.countyId, state.cityId, state.schoolBoardId)
+        }
+
+        pollsJob = pollRepository
+            .observePollsByIds(hierarchyIds)
+            .map { allPolls ->
+                allPolls.sortedWith(compareByDescending<CivicPoll> { it.importanceScore }.thenByDescending { it.createdAt })
+            }
+            .onEach { polls ->
+                _uiState.update { it.copy(polls = polls, isLoading = false, error = null) }
+                filterAndGroupPolls()
+            }
+            .catch { e ->
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
+            }
+            .launchIn(viewModelScope)
+    }
+
+    fun onSearchQueryChange(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
+        filterAndGroupPolls()
+    }
+
+    private fun filterAndGroupPolls() {
+        val state = _uiState.value
+        val currentScope = state.selectedScope
+        val searchFiltered = if (state.searchQuery.isBlank()) {
+            state.polls
+        } else {
+            state.polls.filter { 
+                it.question.contains(state.searchQuery, ignoreCase = true) ||
+                it.districtId.contains(state.searchQuery, ignoreCase = true)
+            }
+        }
+
+        if (currentScope == PollScope.REPRESENTATIVES) {
+            _uiState.update { it.copy(filteredPolls = emptyList(), groupedPolls = emptyMap()) }
+            return
+        }
+
+        val scopeFiltered = when (currentScope) {
+            PollScope.DASHBOARD -> searchFiltered
+            PollScope.FEDERAL -> searchFiltered.filter { it.scope == PollScope.FEDERAL }
+            PollScope.STATE -> searchFiltered.filter { it.scope == PollScope.STATE }
+            PollScope.DISTRICT -> searchFiltered.filter { it.scope == PollScope.DISTRICT }
+            PollScope.LOCAL -> searchFiltered.filter { it.scope == PollScope.LOCAL }
+            PollScope.ALL_POLLS -> searchFiltered
+            PollScope.RESULTS -> searchFiltered.filter { it.status == PollStatus.CLOSED }
+            else -> searchFiltered
+        }
+
+        val hierarchy = linkedMapOf<String, MutableList<CivicPoll>>()
+
+        scopeFiltered.forEach { poll ->
+            val key = when {
+                poll.scope == PollScope.FEDERAL -> "Federal Governance"
+                poll.scope == PollScope.STATE -> "State Governance"
+                poll.districtId == state.federalHouseId -> state.federalHouseName
+                poll.districtId == state.stateSenateId -> state.stateSenateName
+                poll.districtId == state.stateHouseId -> state.stateHouseName
+                poll.districtId == state.countyId -> state.countyName
+                poll.districtId == state.cityId -> state.cityName
+                poll.districtId == state.schoolBoardId -> state.schoolBoardName
+                else -> "Regional & Local"
+            }
+            hierarchy.getOrPut(key) { mutableListOf() }.add(poll)
+        }
+
+        val finalGrouped = hierarchy.filter { it.value.isNotEmpty() }
+        _uiState.update { it.copy(filteredPolls = scopeFiltered, groupedPolls = finalGrouped) }
+    }
+
+    fun setScope(scope: PollScope) {
+        if (_uiState.value.federalHouseId == null && scope != PollScope.FEDERAL && scope != PollScope.ALL_POLLS) return
+        _uiState.update { it.copy(selectedScope = scope, isLoading = true) }
+        observePolls()
+    }
+
+    fun selectDistrict(id: String, displayName: String) {
+        val homeDistrict = sessionManager.currentSession?.districtId
+        val isOther = homeDistrict != null && homeDistrict != id
+        val stateId = id.substringBeforeLast('-', "us")
+        
+        _uiState.update { 
+            it.copy(
+                federalHouseId = id, 
+                stateId = stateId,
+                districtDisplayName = displayName, 
+                isOtherDistrict = isOther,
+                selectedScope = if (isOther) PollScope.LOCAL else it.selectedScope,
+                isLoading = true 
+            ) 
+        }
+        observePolls()
+    }
+
+    fun returnToHomeDistrict() {
+        val homeSession = sessionManager.currentSession ?: return
+        val districtId = homeSession.districtId ?: return
+        selectDistrict(districtId, "Home District")
+    }
+
+    fun onImportanceVote(pollId: String, delta: Int) {
+        val pubKey = sessionManager.currentPubKey ?: return
+        if (_uiState.value.isOtherDistrict || _uiState.value.federalHouseId == null || pubKey.startsWith("guest_")) return
+
+        viewModelScope.launch {
+            pollRepository.voteImportance(pollId, delta, pubKey)
+                .onFailure { e ->
+                    _uiState.update { it.copy(error = "Importance vote failed: ${e.message}") }
+                }
+        }
     }
 
     fun logout() {
-        currentPubKey = null
-        _session.value = null
-        storage?.clearSession()
+        sessionManager.logout()
     }
 
-    fun setDistrict(districtId: String) {
-        val updated = _session.value?.copy(districtId = districtId)
-        if (updated != null) {
-            _session.value = updated
-            storage?.saveSession(updated)
+    fun dismissError() = _uiState.update { it.copy(error = null) }
+}
+```
+
+```kotlin
+// FILE: shared/src/desktopMain/kotlin/Main.kt
+package net.wetheGoverned
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.*
+import io.ktor.client.*
+import io.ktor.client.engine.cio.*
+import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.serialization.kotlinx.json.*
+import io.ktor.http.*
+import net.wetheGoverned.App
+import net.wetheGoverned.data.*
+import net.wetheGoverned.repository.*
+import net.wetheGoverned.session.SessionManager
+import net.wetheGoverned.remote.api.WtgBackendApi
+import java.io.File
+import androidx.compose.ui.res.painterResource
+import kotlinx.coroutines.flow.flowOf
+
+fun main() {
+    application {
+        var isWindowVisible by remember { mutableStateOf(true) }
+        val trayState = rememberTrayState()
+        
+        val sessionStorage = remember { DesktopSessionStorage() }
+        val sessionManager = remember { SessionManager(sessionStorage) }
+
+        val httpClient = remember { 
+            HttpClient(CIO) {
+                install(ContentNegotiation) { 
+                    json(kotlinx.serialization.json.Json { ignoreUnknownKeys = true })
+                }
+            } 
         }
-    }
-
-    fun setJurisdictions(federalId: String, upperId: String?, lowerId: String?, localId: String?) {
-        val updated = _session.value?.copy(
-            districtId = federalId,
-            stateUpperId = upperId,
-            stateLowerId = lowerId,
-            localId = localId
+        val civicApi = remember { DesktopCivicApi(httpClient) }
+        val locationHelper = remember { LocationHelper() }
+        val backendApi = remember { DesktopWtgBackendApi() }
+        
+        val relayUrls = listOf(
+            "wss://nos.lol", 
+            "wss://relay.damus.io", 
+            "wss://relay.snort.social",
+            "wss://offchain.pub",
+            "wss://relay.primal.net",
+            "wss://nostr.mom",
+            "wss://atlas.nostr.land",
+            "wss://bitcoiner.social",
+            "wss://purplepag.es",
+            "wss://no.str.cr"
         )
-        if (updated != null) {
-            _session.value = updated
-            storage?.saveSession(updated)
+        val relayManager = remember { NostrRelayManager(relayUrls) }
+        
+        val publisher = remember {
+            WsCivicPublisher(
+                relayManager, sessionManager, 
+                object : net.wetheGoverned.session.PendingEventQueue {
+                    override suspend fun enqueue(kind: Int, contentJson: String, sig: String) {}
+                    override suspend fun getAllPending(): List<net.wetheGoverned.session.PendingEvent> = emptyList()
+                    override suspend fun dequeue(eventId: String) {}
+                },
+                object : net.wetheGoverned.zk.ZkProver {
+                    override suspend fun generateProof(circuitName: String, inputs: Map<String, Any>): net.wetheGoverned.zk.ZkProofResult = 
+                        net.wetheGoverned.zk.ZkProofResult(emptyList(), emptyList())
+                }
+            )
         }
-    }
 
-    fun upgradeTier(newTier: VerificationTier) {
-        val updated = _session.value?.copy(tier = newTier)
-        if (updated != null) {
-            _session.value = updated
-            storage?.saveSession(updated)
+        // Core Repositories
+        val voteRepository: VoteRepository = remember { DesktopVoteRepository(publisher) }
+        val pollRepository: PollRepository = remember { DesktopPollRepository(publisher) }
+        val residentRepository: ResidentRepository = remember { DesktopResidentRepository(publisher) }
+        val manifestoRepository: ManifestoRepository = remember { DesktopManifestoRepository() }
+        val scorecardRepository: ScorecardRepository = remember { DesktopScorecardRepository() }
+        val communityRepository: CommunityRepository = remember { DesktopCommunityRepository(publisher) }
+        val districtRepository: DistrictRepository = remember { DesktopDistrictRepository() }
+        val accountRepository: AccountRepository = remember { DesktopAccountRepository() }
+        val requestRepository: VerificationRequestRepository = remember { DesktopVerificationRequestRepository() }
+        
+        val p2pSyncEngine = remember {
+            P2PSyncEngine(
+                pollRepository, residentRepository, voteRepository,
+                manifestoRepository, communityRepository, accountRepository, sessionManager,
+                relayManager, publisher
+            )
         }
-    }
 
-    suspend fun emitEvent(event: SessionEvent) {
-        _events.emit(event)
+        LaunchedEffect(Unit) {
+            p2pSyncEngine.start()
+        }
+
+        Tray(
+            state = trayState,
+            icon = painterResource("icon.png"),
+            tooltip = "WeTheGoverned Node (Active)",
+            onAction = { isWindowVisible = true }, 
+            menu = {
+                Item("Open Dashboard", onClick = { isWindowVisible = true })
+                Separator()
+                Item("Exit Fully", onClick = ::exitApplication)
+            }
+        )
+
+        if (isWindowVisible) {
+            Window(
+                onCloseRequest = { isWindowVisible = false },
+                title = "WeTheGoverned",
+                icon = painterResource("icon.png"),
+                state = rememberWindowState(placement = WindowPlacement.Maximized)
+            ) {
+                App(
+                    pollRepository = pollRepository,
+                    accountRepository = accountRepository,
+                    residentRepository = residentRepository,
+                    manifestoRepository = manifestoRepository,
+                    scorecardRepository = scorecardRepository,
+                    districtRepository = districtRepository,
+                    communityRepository = communityRepository,
+                    requestRepository = requestRepository,
+                    sessionManager = sessionManager,
+                    civicApi = civicApi,
+                    backendApi = backendApi,
+                    locationHelper = locationHelper,
+                    relayManager = relayManager
+                )
+            }
+        }
     }
 }
 ```
 
 ```kotlin
-// FILE: shared/src/commonMain/kotlin/net/wetheGoverned/core/Sha256.kt
-package net.wetheGoverned.core
+// FILE: shared/src/wasmJsMain/kotlin/net/wetheGoverned/Main.kt
+package net.wetheGoverned
 
-/**
- * Platform-independent SHA-256 interface.
- */
-expect fun sha256Native(bytes: ByteArray): ByteArray
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.window.ComposeViewport
+import kotlinx.browser.document
+import net.wetheGoverned.App
+import net.wetheGoverned.repository.*
+import net.wetheGoverned.session.*
+import net.wetheGoverned.data.*
+import io.ktor.client.*
+import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.serialization.kotlinx.json.*
+import kotlinx.serialization.json.Json
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 
-fun computeSha256(input: String): String {
-    return sha256Native(input.encodeToByteArray()).toHex()
-}
-
-fun computeSha256(input: ByteArray): ByteArray {
-    return sha256Native(input)
-}
-
-fun taggedHash(tag: String, msg: ByteArray): ByteArray {
-    val tagHash = sha256Native(tag.encodeToByteArray())
-    val combined = ByteArray(64 + msg.size)
-    tagHash.copyInto(combined, 0)
-    tagHash.copyInto(combined, 32)
-    msg.copyInto(combined, 64)
-    return sha256Native(combined)
-}
-
-// Keep the pure Kotlin one for Wasm but use native for JVM for testing
-@OptIn(ExperimentalUnsignedTypes::class)
-fun sha256Pure(msg: ByteArray): ByteArray {
-    val h = uintArrayOf(
-        0x6a09e667u, 0xbb67ae85u, 0x3c6ef372u, 0xa54ff53au,
-        0x510e527fu, 0x9b05688cu, 0x1f83d9abu, 0x5be0cd19u
-    )
-    val k = uintArrayOf(
-        0x428a2f98u, 0x71374491u, 0xb5c0fbcfu, 0xe9b5dba5u, 0x3956c25bu, 0x59f111f1u, 0x923f82a4u, 0xab1c5ed5u,
-        0xd807aa98u, 0x12835b01u, 0x243185beu, 0x550c7dc3u, 0x72be5d74u, 0x80deb1feu, 0x9bdc06a7u, 0xc19bf174u,
-        0xe49b69c1u, 0xefbe4786u, 0x0fc19dc6u, 0x240ca1ccu, 0x2de92c6fu, 0x4a7484aau, 0x5cb0a9dcu, 0x76f988dau,
-        0x983e5152u, 0xa831c66du, 0xb00327c8u, 0xbf597fc7u, 0xc6e00bf3u, 0xd5a79147u, 0x06ca6351u, 0x14292967u,
-        0x27b70a85u, 0x2e1b2138u, 0x4d2c6dfcu, 0x53380d13u, 0x650a7354u, 0x766a0abbu, 0x81c2c92eu, 0x92722c85u,
-        0xa2bfe8a1u, 0xa81a664bu, 0xc24b8b70u, 0xc76c51a3u, 0xd192e819u, 0xd6990624u, 0xf40e3585u, 0x106aa070u,
-        0x19a4c116u, 0x1e376c08u, 0x2748774cu, 0x34b0bcb5u, 0x391c0cb3u, 0x4ed8aa4au, 0x5b9cca4fu, 0x682e6ff3u,
-        0x748f82eeu, 0x78a5636fu, 0x84c87814u, 0x8cc70208u, 0x90befffau, 0xa4506cebu, 0xbef9a3f7u, 0xc67178f2u
-    )
-    val msgBits = msg.size.toLong() * 8
-    val paddingLen = if (msg.size % 64 < 56) 64 - (msg.size % 64) else 128 - (msg.size % 64)
-    val padded = ByteArray(msg.size + paddingLen)
-    msg.copyInto(padded)
-    padded[msg.size] = 0x80.toByte()
-    for (i in 0 until 8) padded[padded.size - 8 + i] = (msgBits shr (56 - i * 8)).toByte()
-    val w = UIntArray(64)
-    for (chunkOffset in 0 until padded.size step 64) {
-        for (j in 0 until 16) {
-            val o = chunkOffset + j * 4
-            w[j] = ((padded[o].toUInt() and 0xffu) shl 24) or
-                   ((padded[o + 1].toUInt() and 0xffu) shl 16) or
-                   ((padded[o + 2].toUInt() and 0xffu) shl 8) or
-                   (padded[o + 3].toUInt() and 0xffu)
+@OptIn(ExperimentalComposeUiApi::class)
+fun main() {
+    // V2-SYNC-ACTIVE-12-RELAYS
+    println("Initializing WeTheGoverned Web Core...")
+    ComposeViewport(document.getElementById("compose-target")!!) {
+        val sessionStorage = remember { WebSessionStorage() }
+        val sessionManager = remember { SessionManager(sessionStorage) }
+        
+        val httpClient = remember {
+            HttpClient {
+                install(ContentNegotiation) {
+                    json(Json { ignoreUnknownKeys = true })
+                }
+            }
         }
-        for (j in 16 until 64) {
-            val s0 = (w[j - 15] rotateRight 7) xor (w[j - 15] rotateRight 18) xor (w[j - 15] shr 3)
-            val s1 = (w[j - 2] rotateRight 17) xor (w[j - 2] rotateRight 19) xor (w[j - 2] shr 10)
-            w[j] = s1 + w[j - 7] + s0 + w[j - 16]
+        val civicApi = remember { WebCivicApi(httpClient) }
+        val backendApi = remember { WebWtgBackendApi(httpClient) }
+        val locationHelper = remember { LocationHelper() }
+        
+        val relayUrls = listOf(
+            "wss://nos.lol", 
+            "wss://relay.damus.io", 
+            "wss://relay.snort.social",
+            "wss://offchain.pub",
+            "wss://relay.primal.net",
+            "wss://nostr.mom",
+            "wss://atlas.nostr.land",
+            "wss://bitcoiner.social",
+            "wss://purplepag.es",
+            "wss://no.str.cr"
+        )
+        val relayManager = remember { NostrRelayManager(relayUrls) }
+        
+        val publisher = remember {
+            WsCivicPublisher(
+                relayManager, sessionManager,
+                object : net.wetheGoverned.session.PendingEventQueue {
+                    override suspend fun enqueue(kind: Int, contentJson: String, sig: String) {}
+                    override suspend fun getAllPending(): List<net.wetheGoverned.session.PendingEvent> = emptyList()
+                    override suspend fun dequeue(eventId: String) {}
+                },
+                object : net.wetheGoverned.zk.ZkProver {
+                    override suspend fun generateProof(circuitName: String, inputs: Map<String, Any>): net.wetheGoverned.zk.ZkProofResult = 
+                        net.wetheGoverned.zk.ZkProofResult(emptyList(), emptyList())
+                }
+            )
         }
-        var a = h[0]; var b = h[1]; var c = h[2]; var d = h[3]
-        var e = h[4]; var f = h[5]; var g = h[6]; var h_var = h[7]
-        for (j in 0 until 64) {
-            val S1 = (e rotateRight 6) xor (e rotateRight 11) xor (e rotateRight 25)
-            val ch = (e and f) xor (e.inv() and g)
-            val t1 = h_var + S1 + ch + k[j] + w[j]
-            val S0 = (a rotateRight 2) xor (a rotateRight 13) xor (a rotateRight 22)
-            val maj = (a and b) xor (a and c) xor (b and c)
-            val t2 = S0 + maj
-            h_var = g; g = f; f = e; e = d + t1; d = c; c = b; b = a; a = t1 + t2
+
+        val pollRepository = remember { WebPollRepository(publisher) }
+        val accountRepository = remember { WebAccountRepository() }
+        val residentRepository = remember { WebResidentRepository(publisher) }
+        val manifestoRepository = remember { WebManifestoRepository() }
+        val scorecardRepository = remember { WebScorecardRepository() }
+        val districtRepository = remember { WebDistrictRepository() }
+        val communityRepository = remember { WebCommunityRepository(publisher) }
+        val requestRepository = remember { WebVerificationRequestRepository() }
+        val voteRepository = remember { WebVoteRepository(publisher) }
+        
+        val syncEngine = remember {
+            P2PSyncEngine(
+                pollRepository, residentRepository, voteRepository,
+                manifestoRepository, communityRepository, accountRepository, sessionManager,
+                relayManager, publisher
+            )
         }
-        h[0] += a; h[1] += b; h[2] += c; h[3] += d
-        h[4] += e; h[5] += f; h[6] += g; h[7] += h_var
-    }
-    val res = ByteArray(32)
-    for (i in 0 until 8) {
-        res[i * 4] = (h[i] shr 24).toByte()
-        res[i * 4 + 1] = (h[i] shr 16).toByte()
-        res[i * 4 + 2] = (h[i] shr 8).toByte()
-        res[i * 4 + 3] = h[i].toByte()
-    }
-    return res
-}
 
-@OptIn(ExperimentalUnsignedTypes::class)
-private infix fun UInt.rotateRight(n: Int): UInt = (this shr n) or (this shl (32 - n))
+        LaunchedEffect(Unit) {
+            syncEngine.start()
+        }
 
-fun ByteArray.toHex(): String = joinToString("") { (it.toInt() and 0xff).toString(16).padStart(2, '0') }
-
-fun String.hexToBytes(): ByteArray {
-    val res = ByteArray(length / 2)
-    for (i in 0 until length step 2) {
-        res[i / 2] = substring(i, i + 2).toInt(16).toByte()
+        App(
+            pollRepository = pollRepository,
+            accountRepository = accountRepository,
+            residentRepository = residentRepository,
+            manifestoRepository = manifestoRepository,
+            scorecardRepository = scorecardRepository,
+            districtRepository = districtRepository,
+            communityRepository = communityRepository,
+            requestRepository = requestRepository,
+            sessionManager = sessionManager,
+            civicApi = civicApi,
+            backendApi = backendApi,
+            locationHelper = locationHelper,
+            relayManager = relayManager
+        )
     }
-    return res
 }
 ```
