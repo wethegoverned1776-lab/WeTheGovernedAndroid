@@ -36,9 +36,17 @@ fun HomeScreen(
     onLogout: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(Unit) {
+        net.wetheGoverned.util.GlobalNotification.messages.collect { msg ->
+            snackbarHostState.showSnackbar(msg)
+        }
+    }
 
     HomeContent(
         uiState = uiState,
+        snackbarHostState = snackbarHostState,
         onNavigateToPoll = onNavigateToPoll,
         onNavigateToDistrictSelection = onNavigateToDistrictSelection,
         onNavigateToManifestos = onNavigateToManifestos,
@@ -62,6 +70,7 @@ fun HomeScreen(
 @Composable
 fun HomeContent(
     uiState: HomeUiState,
+    snackbarHostState: SnackbarHostState,
     onNavigateToPoll: (String) -> Unit,
     onNavigateToDistrictSelection: () -> Unit,
     onNavigateToManifestos: () -> Unit,
@@ -81,6 +90,7 @@ fun HomeContent(
     val districtId = uiState.federalHouseId
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {

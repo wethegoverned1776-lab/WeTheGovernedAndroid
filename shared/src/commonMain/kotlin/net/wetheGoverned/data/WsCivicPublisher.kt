@@ -23,6 +23,7 @@ class WsCivicPublisher(
         content: String,
         pubKey: String
     ) {
+        val normalizedPubKey = pubKey.lowercase()
         val nostrTags = tags.toMutableList()
         
         // Ensure geography tags are lowercase and consistent
@@ -34,7 +35,7 @@ class WsCivicPublisher(
         
         // Step 1: Compute Canonical ID
         val eventId = computeNostrId(
-            pubKey = pubKey,
+            pubKey = normalizedPubKey,
             createdAt = createdAt,
             kind = kind,
             tags = normalizedTags,
@@ -42,19 +43,33 @@ class WsCivicPublisher(
         )
 
         // Step 2: Protocol-compliant BIP-340 Schnorr signature (128 hex chars)
-        val privateKey = sessionManager.currentSession?.privateKey 
-            ?: NostrConstants.ADMIN_PRIVKEY
+        val session = sessionManager.currentSession
+        val privateKey: String
+        if (session != null && session.pubKey.lowercase() == normalizedPubKey) {
+            println("🔑 WsCivicPublisher: Using session key for ${session.displayName} (pubKey: ${session.pubKey.take(8)}...)")
+            privateKey = session.privateKey ?: NostrConstants.ADMIN_PRIVKEY
+        } else if (normalizedPubKey == NostrConstants.ADMIN_PUBKEY) {
+            println("🔑 WsCivicPublisher: Using ADMIN fallback key.")
+            privateKey = NostrConstants.ADMIN_PRIVKEY
+        } else {
+            val warning = "⚠️ Key mismatch! pubKey=$normalizedPubKey but session=${session?.pubKey?.lowercase()}. Using ADMIN key."
+            println("WsCivicPublisher: $warning")
+            net.wetheGoverned.util.GlobalNotification.notify(warning)
+            privateKey = NostrConstants.ADMIN_PRIVKEY
+        }
         
         val signature = try {
             Secp256k1KeyManager.sign(eventId, privateKey)
         } catch (e: Exception) {
-            println("❌ CRYPTO FAILURE: Failed to sign event ${eventId.take(8)}: ${e.message}")
+            val errorMsg = "❌ CRYPTO FAILURE: Failed to sign event ${eventId.take(8)}: ${e.message}"
+            println("WsCivicPublisher: $errorMsg")
+            net.wetheGoverned.util.GlobalNotification.notify(errorMsg)
             throw e
         }
         
         val event = CivicEvent(
             id = eventId,
-            pubKey = pubKey,
+            pubKey = normalizedPubKey,
             createdAt = createdAt,
             kind = kind,
             tags = normalizedTags,

@@ -285,9 +285,16 @@ class NostrRelayManager(
                     val success = array[2].jsonPrimitive.boolean
                     val message = if (array.size > 3) array[3].jsonPrimitive.content else ""
                     if (success) {
-                        println("✅ Relay $originUrl accepted event $eventId")
+                        println("✅ NostrRelayManager: Relay $originUrl ACCEPTED event ${eventId.take(8)}")
                     } else {
-                        println("❌ Relay $originUrl REJECTED event $eventId: $message")
+                        val errorMsg = "❌ Relay REJECTED event ${eventId.take(8)}: $message"
+                        println("NostrRelayManager: $errorMsg from $originUrl")
+                        net.wetheGoverned.util.GlobalNotification.notify(errorMsg)
+                        if (message.contains("pow")) {
+                            println("💡 Note: Relay requires Proof of Work for this event kind.")
+                        } else if (message.contains("signature")) {
+                            println("⚠️ CRYPTO ALERT: Signature verification failed on relay. Ensure session private key matches pubKey.")
+                        }
                     }
                 }
                 "NOTICE" -> {
@@ -344,16 +351,16 @@ class NostrRelayManager(
     }
 
     suspend fun publish(event: CivicEvent, preferredRelays: List<String>? = null) {
-        val request = buildJsonArray {
+        val wireRequest = buildJsonArray {
             add("EVENT")
             add(json.encodeToJsonElement(event))
         }.toString()
         
         val activeCount = activeSessions.size
-        println("📡 Attempting to publish event ${event.id} to $activeCount active relays...")
+        println("📡 NostrRelayManager: Attempting to publish event ${event.id.take(8)} to $activeCount active relays...")
 
         if (activeCount == 0) {
-            println("⚠️ No active relay connections! Reconnecting...")
+            println("⚠️ NostrRelayManager: No active relay connections! Reconnecting...")
             connect()
         }
         
@@ -361,8 +368,9 @@ class NostrRelayManager(
         activeSessions.forEach { (url, session) ->
             scope.launch {
                 try {
+                    println("📡 NostrRelayManager: Sending to active relay $url...")
                     withTimeout(10000) {
-                        session.send(Frame.Text(request))
+                        session.send(Frame.Text(wireRequest))
                     }
                     // Relays often send an OK message immediately after EVENT
                 } catch (e: Exception) {
@@ -381,9 +389,10 @@ class NostrRelayManager(
         targets.forEach { url ->
             scope.launch {
                 try {
+                    println("📡 NostrRelayManager: Exploratory publish to $url...")
                     withTimeout(15000) {
                         client.webSocket(url) {
-                            send(Frame.Text(request))
+                            send(Frame.Text(wireRequest))
                             // Wait for OK response
                             for (frame in incoming) {
                                 if (frame is Frame.Text) {

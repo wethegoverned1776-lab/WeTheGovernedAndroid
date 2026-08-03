@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.*
 import net.wetheGoverned.core.*
 import net.wetheGoverned.model.*
@@ -85,6 +86,7 @@ class P2PSyncEngine(
                         add(JsonPrimitive(CivicEventKind.STATE_POLL))
                         add(JsonPrimitive(CivicEventKind.DISTRICT_POLL))
                         add(JsonPrimitive(CivicEventKind.LOCAL_POLL))
+                        add(JsonPrimitive(CivicEventKind.POLL_VOTE))
                     })
                     put("#g", buildJsonArray {
                         add(JsonPrimitive(myDistrictId))
@@ -99,6 +101,7 @@ class P2PSyncEngine(
                         add(JsonPrimitive(CivicEventKind.STATE_POLL))
                         add(JsonPrimitive(CivicEventKind.DISTRICT_POLL))
                         add(JsonPrimitive(CivicEventKind.LOCAL_POLL))
+                        add(JsonPrimitive(CivicEventKind.POLL_VOTE))
                         add(JsonPrimitive(CivicEventKind.COMMUNITY_POST))
                     })
                     put("#t", buildJsonArray {
@@ -119,12 +122,14 @@ class P2PSyncEngine(
                 } else null
                 
                 val filters = listOfNotNull(districtFilterG, districtFilterT, userFilter).toTypedArray()
+                println("📡 Sync Engine: Subscribing with ${filters.size} filters to relay mesh")
                 relayManager.subscribe("wtg_sync_$myDistrictId", *filters)
                 
                 if (session != null) {
                     scope.launch { 
                         delay(5000) // Wait for initial connections to stabilize
                         pushLocalDataToRelays(session) 
+                        pushLocalVotesToRelays(session)
                         publishWorkingRelayList(session)
                     }
                 }
@@ -187,7 +192,7 @@ class P2PSyncEngine(
 
         // 2. Sync Polls authored by user (Filtered for protocol compliance)
         pollRepository.getAllPolls().forEach { poll ->
-            if (poll.authorPubKey == session.pubKey || poll.authorPubKey == "admin") {
+            if (poll.authorPubKey == session.pubKey || poll.authorPubKey == NostrConstants.ADMIN_PUBKEY) {
                 // Protocol Guard: Only sync polls that have a valid 64-char hex ID
                 // This ignores old 'poll_123' style legacy data that relays reject
                 if (Secp256k1KeyManager.isValidNostrHex(poll.id)) {
@@ -204,6 +209,29 @@ class P2PSyncEngine(
                     )
                 }
             }
+        }
+    }
+
+    private suspend fun pushLocalVotesToRelays(session: UserSession) {
+        println("📤 Syncing local votes to NOSTR relays for ${session.displayName}...")
+        try {
+            val votes = voteRepository.observeVotesByUser(session.pubKey).first()
+            for (vote in votes) {
+                pollRepository.getPoll(vote.pollId).onSuccess { poll ->
+                    publisher.signPublishImportCivicEvent(
+                        kind = CivicEventKind.POLL_VOTE,
+                        tags = listOf(
+                            listOf("d", vote.id), 
+                            listOf("g", poll.districtId),
+                            listOf("e", vote.pollId)
+                        ),
+                        content = json.encodeToString(CivicVote.serializer(), vote),
+                        pubKey = session.pubKey
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            println("⚠️ Failed to sync local votes: ${e.message}")
         }
     }
 

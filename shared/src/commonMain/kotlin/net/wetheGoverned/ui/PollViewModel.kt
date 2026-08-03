@@ -56,6 +56,7 @@ open class PollViewModel(
             options = options,
             closesAt = null,
             scope = scope,
+            authorPubKey = session?.pubKey ?: net.wetheGoverned.model.NostrConstants.ADMIN_PUBKEY,
             localId = localId
         )
         result.onSuccess {
