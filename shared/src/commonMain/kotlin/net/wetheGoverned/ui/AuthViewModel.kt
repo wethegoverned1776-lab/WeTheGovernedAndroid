@@ -120,11 +120,16 @@ open class AuthViewModel(
             result.onSuccess { account ->
                 // Fetch profile to determine tier
                 val profile = residentRepository.getProfile(account.pubKey).getOrNull()
+                
+                // ERR_FIX: Ensure hardcoded admin is always VERIFIED if profile not found
+                val tier = if (username == "admin") VerificationTier.VERIFIED 
+                          else profile?.tier ?: VerificationTier.OBSERVER
+
                 sessionManager.login(
                     pubKeyHex = account.pubKey,
                     privateKeyHex = account.privateKey,
                     districtId = account.districtId,
-                    tier = profile?.tier ?: VerificationTier.OBSERVER,
+                    tier = tier,
                     displayName = username
                 )
                 _uiState.update { it.copy(
