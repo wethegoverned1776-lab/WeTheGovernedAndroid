@@ -42,6 +42,12 @@ open class AuthViewModel(
             _uiState.update { it.copy(error = "Username and password are required") }
             return
         }
+        
+        // Protocol Guard: Prevent taking the admin name if not admin
+        if (username.lowercase() == "admin") {
+            _uiState.update { it.copy(error = "Username 'admin' is reserved") }
+            return
+        }
 
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }

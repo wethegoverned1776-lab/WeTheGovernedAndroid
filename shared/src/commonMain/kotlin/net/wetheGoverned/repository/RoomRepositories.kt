@@ -49,8 +49,9 @@ class RoomPollRepository(
             closesAt = closesAt ?: (now + 86400000),
             totalVotes = 0
         )
-        db.pollDao().upsertPoll(newPoll.toEntity())
         
+        // Protocol Guard: Always publish to mesh FIRST. 
+        // Even if local DB fails (e.g. Wasm worker missing), the network will receive it.
         publisher?.signPublishImportCivicEvent(
             kind = when(scope) {
                 CivicScope.FEDERAL -> CivicEventKind.FEDERAL_POLL
@@ -62,6 +63,13 @@ class RoomPollRepository(
             content = CivicJson.encodeToString(CivicPoll.serializer(), newPoll),
             pubKey = authorPubKey
         )
+
+        try {
+            db.pollDao().upsertPoll(newPoll.toEntity())
+        } catch (e: Exception) {
+            println("⚠️ Local DB failure (Wasm persistence issue): ${e.message}")
+        }
+
         newPoll
     }
 
@@ -193,30 +201,40 @@ class RoomResidentRepository(
     override suspend fun updateProfile(pubKey: String, displayName: String, avatarUrl: String?): Result<ResidentProfile> = runCatching {
         val p = db.residentProfileDao().getProfile(pubKey) ?: throw Exception("Not found")
         val updated = p.copy(displayName = displayName, avatarUrl = avatarUrl ?: p.avatarUrl)
-        db.residentProfileDao().upsertProfile(updated)
-        
         val domain = updated.toDomain()
+        
         publisher?.signPublishImportCivicEvent(
             kind = CivicEventKind.RESIDENT_PROFILE,
             tags = listOf(listOf("d", pubKey), listOf("g", domain.federalHouseId ?: "us")),
             content = CivicJson.encodeToString(ResidentProfile.serializer(), domain),
             pubKey = pubKey
         )
+        
+        try {
+            db.residentProfileDao().upsertProfile(updated)
+        } catch (e: Exception) {
+            println("⚠️ Local DB failure (Resident): ${e.message}")
+        }
         domain
     }
 
     override suspend fun updateDistrict(pubKey: String, districtId: String): Result<Unit> = runCatching {
         val p = db.residentProfileDao().getProfile(pubKey) ?: throw Exception("Not found")
         val updated = p.copy(federalHouseId = districtId)
-        db.residentProfileDao().upsertProfile(updated)
-        
         val domain = updated.toDomain()
+        
         publisher?.signPublishImportCivicEvent(
             kind = CivicEventKind.RESIDENT_PROFILE,
             tags = listOf(listOf("d", pubKey), listOf("g", districtId)),
             content = CivicJson.encodeToString(ResidentProfile.serializer(), domain),
             pubKey = pubKey
         )
+
+        try {
+            db.residentProfileDao().upsertProfile(updated)
+        } catch (e: Exception) {
+            println("⚠️ Local DB failure (District Update): ${e.message}")
+        }
     }
 
     override suspend fun getResidentCountAtAddress(fingerprint: String): Int = db.residentProfileDao().getProfileCountByFingerprint(fingerprint)
@@ -268,7 +286,6 @@ class RoomCommunityRepository(
             contactInfo = contactInfo,
             createdAt = Clock.System.now().toEpochMilliseconds()
         )
-        db.communityPostDao().upsertPost(post.toEntity())
         
         publisher?.signPublishImportCivicEvent(
             kind = CivicEventKind.COMMUNITY_POST,
@@ -276,6 +293,13 @@ class RoomCommunityRepository(
             content = CivicJson.encodeToString(CommunityPost.serializer(), post),
             pubKey = authorPubKey
         )
+
+        try {
+            db.communityPostDao().upsertPost(post.toEntity())
+        } catch (e: Exception) {
+            println("⚠️ Local DB failure (Community Post): ${e.message}")
+        }
+
         post
     }
 
@@ -294,8 +318,8 @@ class RoomAccountRepository(private val db: AppDatabase) : AccountRepository {
     }
 
     override suspend fun login(username: String, password: String): Result<UserAccount> = runCatching {
-        val adminPub = "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
-        val adminPriv = "0000000000000000000000000000000000000000000000000000000000000001"
+        val adminPub = NostrConstants.ADMIN_PUBKEY
+        val adminPriv = NostrConstants.ADMIN_PRIVKEY
         
         if (username == "admin" && password == "1January012@") {
             // Requirement: Admin must be VERIFIED in the profile database

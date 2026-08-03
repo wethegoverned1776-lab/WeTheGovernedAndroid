@@ -43,9 +43,14 @@ class WsCivicPublisher(
 
         // Step 2: Protocol-compliant BIP-340 Schnorr signature (128 hex chars)
         val privateKey = sessionManager.currentSession?.privateKey 
-            ?: "0000000000000000000000000000000000000000000000000000000000000001"
+            ?: NostrConstants.ADMIN_PRIVKEY
         
-        val signature = Secp256k1KeyManager.sign(eventId, privateKey)
+        val signature = try {
+            Secp256k1KeyManager.sign(eventId, privateKey)
+        } catch (e: Exception) {
+            println("❌ CRYPTO FAILURE: Failed to sign event ${eventId.take(8)}: ${e.message}")
+            throw e
+        }
         
         val event = CivicEvent(
             id = eventId,
@@ -57,7 +62,9 @@ class WsCivicPublisher(
             sig = signature
         )
 
-        println("📤 Publishing to Mesh: ${event.id}")
+        println("📤 Publishing to Mesh [Kind $kind]: ${event.id}")
+        println("   - Signature: ${event.sig.take(16)}...${event.sig.takeLast(16)}")
+        println("   - Content: ${content.take(100)}")
 
         // Step 3: Broadcast
         val isCritical = kind in listOf(
@@ -74,26 +81,8 @@ class WsCivicPublisher(
 
     /**
      * NIP-01 Canonical ID computation. 
-     * Serializes using shared CivicJson to ensure cross-platform character-matching.
      */
     private fun computeNostrId(pubKey: String, createdAt: Long, kind: Int, tags: List<List<String>>, content: String): String {
-        val jsonArray = buildJsonArray {
-            add(JsonPrimitive(0))
-            add(JsonPrimitive(pubKey))
-            add(JsonPrimitive(createdAt))
-            add(JsonPrimitive(kind))
-            add(buildJsonArray {
-                tags.forEach { tag ->
-                    add(buildJsonArray {
-                        tag.forEach { element -> add(JsonPrimitive(element)) }
-                    })
-                }
-            })
-            add(JsonPrimitive(content))
-        }
-        
-        // CRITICAL: Must use unified CivicJson for encoding to ensure no spaces/formatting differences
-        val serialized = CivicJson.encodeToString(JsonArray.serializer(), jsonArray)
-        return computeSha256(serialized)
+        return buildNip01EventId(pubKey, createdAt, kind, tags, content)
     }
 }

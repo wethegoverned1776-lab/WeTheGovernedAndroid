@@ -74,4 +74,10 @@ data class RelayMetric(
     val score: Int = 0
 )
 
+object NostrConstants {
+    const val ADMIN_PUBKEY = "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+    const val ADMIN_PRIVKEY = "0000000000000000000000000000000000000000000000000000000000000001"
+}
+
 typealias RelayUsage = RelayMetadata
+
