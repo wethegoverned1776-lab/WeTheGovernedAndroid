@@ -149,7 +149,7 @@ fun HomeContent(
             )
         },
         floatingActionButton = {
-            if (!isReadOnly && !isObserver) {
+            if (!isReadOnly) {
                 FloatingActionButton(onClick = onCreatePoll) {
                     Icon(Icons.Default.Add, contentDescription = "Create Poll")
                 }
