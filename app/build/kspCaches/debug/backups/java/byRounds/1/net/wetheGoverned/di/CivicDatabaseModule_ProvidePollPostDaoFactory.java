@@ -7,8 +7,8 @@ import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import javax.annotation.processing.Generated;
 import javax.inject.Provider;
-import net.wetheGoverned.data.CivicDatabase;
-import net.wetheGoverned.local.dao.PollPostDao;
+import net.wetheGoverned.data.local.AppDatabase;
+import net.wetheGoverned.data.local.dao.PollPostDao;
 
 @ScopeMetadata("javax.inject.Singleton")
 @QualifierMetadata
@@ -25,9 +25,9 @@ import net.wetheGoverned.local.dao.PollPostDao;
     "cast"
 })
 public final class CivicDatabaseModule_ProvidePollPostDaoFactory implements Factory<PollPostDao> {
-  private final Provider<CivicDatabase> dbProvider;
+  private final Provider<AppDatabase> dbProvider;
 
-  public CivicDatabaseModule_ProvidePollPostDaoFactory(Provider<CivicDatabase> dbProvider) {
+  public CivicDatabaseModule_ProvidePollPostDaoFactory(Provider<AppDatabase> dbProvider) {
     this.dbProvider = dbProvider;
   }
 
@@ -37,11 +37,11 @@ public final class CivicDatabaseModule_ProvidePollPostDaoFactory implements Fact
   }
 
   public static CivicDatabaseModule_ProvidePollPostDaoFactory create(
-      Provider<CivicDatabase> dbProvider) {
+      Provider<AppDatabase> dbProvider) {
     return new CivicDatabaseModule_ProvidePollPostDaoFactory(dbProvider);
   }
 
-  public static PollPostDao providePollPostDao(CivicDatabase db) {
+  public static PollPostDao providePollPostDao(AppDatabase db) {
     return Preconditions.checkNotNullFromProvides(CivicDatabaseModule.INSTANCE.providePollPostDao(db));
   }
 }

@@ -34,7 +34,6 @@
         android:icon="@mipmap/ic_launcher"
         android:label="WeTheGoverned"
         android:roundIcon="@mipmap/ic_launcher_round"
-        android:testOnly="true"
         android:theme="@style/Theme.WeTheGoverned" >
         <activity
             android:name="net.wetheGoverned.MainActivity"
@@ -83,7 +82,7 @@
         </provider>
 
         <service
-            android:name="androidx.room.MultiInstanceInvalidationService"
+            android:name="androidx.room3.MultiInstanceInvalidationService"
             android:directBootAware="true"
             android:exported="false" />
 

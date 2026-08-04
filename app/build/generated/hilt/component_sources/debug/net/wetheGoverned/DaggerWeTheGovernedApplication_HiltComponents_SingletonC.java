@@ -32,24 +32,17 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.processing.Generated;
 import javax.inject.Provider;
-import net.wetheGoverned.data.CivicDatabase;
+import net.wetheGoverned.core.CivicPublisher;
+import net.wetheGoverned.core.DispatcherProvider;
 import net.wetheGoverned.data.NostrRelayManager;
 import net.wetheGoverned.data.P2PService;
 import net.wetheGoverned.data.P2PService_MembersInjector;
 import net.wetheGoverned.data.P2PSyncEngine;
-import net.wetheGoverned.data.repository.AndroidAccountRepository;
-import net.wetheGoverned.data.repository.CommunityRepositoryImpl;
-import net.wetheGoverned.data.repository.DistrictRepositoryImpl;
-import net.wetheGoverned.data.repository.ManifestoRepositoryImpl;
-import net.wetheGoverned.data.repository.PollRepositoryImpl;
-import net.wetheGoverned.data.repository.ResidentRepositoryImpl;
-import net.wetheGoverned.data.repository.ScorecardRepositoryImpl;
-import net.wetheGoverned.data.repository.VerificationRequestRepositoryImpl;
-import net.wetheGoverned.data.repository.VoteRepositoryImpl;
-import net.wetheGoverned.di.CivicDatabaseModule_ProvideAccountDaoFactory;
+import net.wetheGoverned.data.local.AppDatabase;
+import net.wetheGoverned.data.local.dao.PendingEventDao;
+import net.wetheGoverned.di.CivicBindingModule_Companion_ProvideDispatcherProviderFactory;
 import net.wetheGoverned.di.CivicDatabaseModule_ProvideDatabaseFactory;
-import net.wetheGoverned.di.CivicDatabaseModule_ProvideProfileDaoFactory;
-import net.wetheGoverned.di.CivicDatabaseModule_ProvideVerificationRequestDaoFactory;
+import net.wetheGoverned.di.CivicDatabaseModule_ProvidePendingDaoFactory;
 import net.wetheGoverned.di.CivicNetworkModule_ProvideCivicApiFactory;
 import net.wetheGoverned.di.CivicNetworkModule_ProvideHttpClientFactory;
 import net.wetheGoverned.di.CivicNetworkModule_ProvideLocationHelperFactory;
@@ -57,10 +50,17 @@ import net.wetheGoverned.di.CivicNetworkModule_ProvideNostrRelayManagerFactory;
 import net.wetheGoverned.di.CivicNetworkModule_ProvideP2PSyncEngineFactory;
 import net.wetheGoverned.di.CivicNetworkModule_ProvideRelayUrlsFactory;
 import net.wetheGoverned.di.CivicNetworkModule_ProvideSessionManagerFactory;
+import net.wetheGoverned.di.CivicNetworkModule_ProvideWsCivicPublisherFactory;
 import net.wetheGoverned.di.CivicNetworkModule_ProvideWtgBackendApiFactory;
-import net.wetheGoverned.local.dao.AccountDao;
-import net.wetheGoverned.local.dao.ResidentProfileDao;
-import net.wetheGoverned.local.dao.VerificationRequestDao;
+import net.wetheGoverned.di.CivicRepositoryModule_ProvideAccountRepositoryFactory;
+import net.wetheGoverned.di.CivicRepositoryModule_ProvideCommunityRepositoryFactory;
+import net.wetheGoverned.di.CivicRepositoryModule_ProvideDistrictRepositoryFactory;
+import net.wetheGoverned.di.CivicRepositoryModule_ProvideManifestoRepositoryFactory;
+import net.wetheGoverned.di.CivicRepositoryModule_ProvidePollRepositoryFactory;
+import net.wetheGoverned.di.CivicRepositoryModule_ProvideResidentRepositoryFactory;
+import net.wetheGoverned.di.CivicRepositoryModule_ProvideScorecardRepositoryFactory;
+import net.wetheGoverned.di.CivicRepositoryModule_ProvideVerificationRequestRepositoryFactory;
+import net.wetheGoverned.di.CivicRepositoryModule_ProvideVoteRepositoryFactory;
 import net.wetheGoverned.remote.api.CivicApi;
 import net.wetheGoverned.remote.api.WtgBackendApi;
 import net.wetheGoverned.repository.AccountRepository;
@@ -71,9 +71,11 @@ import net.wetheGoverned.repository.PollRepository;
 import net.wetheGoverned.repository.ResidentRepository;
 import net.wetheGoverned.repository.ScorecardRepository;
 import net.wetheGoverned.repository.VerificationRequestRepository;
+import net.wetheGoverned.repository.VoteRepository;
+import net.wetheGoverned.session.AndroidPendingEventQueue;
 import net.wetheGoverned.session.CredentialsManager;
 import net.wetheGoverned.session.SessionManager;
-import net.wetheGoverned.ui.location.LocationHelper;
+import net.wetheGoverned.zk.NativeZkProver;
 
 @DaggerGenerated
 @Generated(
@@ -422,7 +424,7 @@ public final class DaggerWeTheGovernedApplication_HiltComponents_SingletonC {
     }
 
     @Override
-    public void injectMainActivity(MainActivity mainActivity) {
+    public void injectMainActivity(MainActivity arg0) {
     }
   }
 
@@ -522,8 +524,8 @@ public final class DaggerWeTheGovernedApplication_HiltComponents_SingletonC {
     }
 
     @Override
-    public void injectP2PService(P2PService p2PService) {
-      injectP2PService2(p2PService);
+    public void injectP2PService(P2PService arg0) {
+      injectP2PService2(arg0);
     }
 
     @CanIgnoreReturnValue
@@ -538,41 +540,45 @@ public final class DaggerWeTheGovernedApplication_HiltComponents_SingletonC {
 
     private final SingletonCImpl singletonCImpl = this;
 
-    private dagger.internal.Provider<PollRepositoryImpl> pollRepositoryImplProvider;
-
-    private dagger.internal.Provider<CivicDatabase> provideDatabaseProvider;
-
-    private dagger.internal.Provider<ResidentProfileDao> provideProfileDaoProvider;
-
-    private dagger.internal.Provider<ResidentRepositoryImpl> residentRepositoryImplProvider;
-
-    private dagger.internal.Provider<VoteRepositoryImpl> voteRepositoryImplProvider;
-
-    private dagger.internal.Provider<ManifestoRepositoryImpl> manifestoRepositoryImplProvider;
-
-    private dagger.internal.Provider<AccountDao> provideAccountDaoProvider;
-
-    private dagger.internal.Provider<AndroidAccountRepository> androidAccountRepositoryProvider;
-
-    private dagger.internal.Provider<CredentialsManager> credentialsManagerProvider;
-
-    private dagger.internal.Provider<SessionManager> provideSessionManagerProvider;
+    private dagger.internal.Provider<AppDatabase> provideDatabaseProvider;
 
     private dagger.internal.Provider<List<String>> provideRelayUrlsProvider;
 
     private dagger.internal.Provider<NostrRelayManager> provideNostrRelayManagerProvider;
 
+    private dagger.internal.Provider<CredentialsManager> credentialsManagerProvider;
+
+    private dagger.internal.Provider<SessionManager> provideSessionManagerProvider;
+
+    private dagger.internal.Provider<PendingEventDao> providePendingDaoProvider;
+
+    private dagger.internal.Provider<AndroidPendingEventQueue> androidPendingEventQueueProvider;
+
+    private dagger.internal.Provider<DispatcherProvider> provideDispatcherProvider;
+
+    private dagger.internal.Provider<NativeZkProver> nativeZkProverProvider;
+
+    private dagger.internal.Provider<CivicPublisher> provideWsCivicPublisherProvider;
+
+    private dagger.internal.Provider<PollRepository> providePollRepositoryProvider;
+
+    private dagger.internal.Provider<ResidentRepository> provideResidentRepositoryProvider;
+
+    private dagger.internal.Provider<VoteRepository> provideVoteRepositoryProvider;
+
+    private dagger.internal.Provider<ManifestoRepository> provideManifestoRepositoryProvider;
+
+    private dagger.internal.Provider<CommunityRepository> provideCommunityRepositoryProvider;
+
+    private dagger.internal.Provider<AccountRepository> provideAccountRepositoryProvider;
+
     private dagger.internal.Provider<P2PSyncEngine> provideP2PSyncEngineProvider;
 
-    private dagger.internal.Provider<ScorecardRepositoryImpl> scorecardRepositoryImplProvider;
+    private dagger.internal.Provider<ScorecardRepository> provideScorecardRepositoryProvider;
 
-    private dagger.internal.Provider<DistrictRepositoryImpl> districtRepositoryImplProvider;
+    private dagger.internal.Provider<DistrictRepository> provideDistrictRepositoryProvider;
 
-    private dagger.internal.Provider<CommunityRepositoryImpl> communityRepositoryImplProvider;
-
-    private dagger.internal.Provider<VerificationRequestDao> provideVerificationRequestDaoProvider;
-
-    private dagger.internal.Provider<VerificationRequestRepositoryImpl> verificationRequestRepositoryImplProvider;
+    private dagger.internal.Provider<VerificationRequestRepository> provideVerificationRequestRepositoryProvider;
 
     private dagger.internal.Provider<CivicApi> provideCivicApiProvider;
 
@@ -590,28 +596,30 @@ public final class DaggerWeTheGovernedApplication_HiltComponents_SingletonC {
 
     @SuppressWarnings("unchecked")
     private void initialize(final ApplicationContextModule applicationContextModuleParam) {
-      this.pollRepositoryImplProvider = DoubleCheck.provider(new SwitchingProvider<PollRepositoryImpl>(singletonCImpl, 1));
-      this.provideDatabaseProvider = DoubleCheck.provider(new SwitchingProvider<CivicDatabase>(singletonCImpl, 4));
-      this.provideProfileDaoProvider = DoubleCheck.provider(new SwitchingProvider<ResidentProfileDao>(singletonCImpl, 3));
-      this.residentRepositoryImplProvider = DoubleCheck.provider(new SwitchingProvider<ResidentRepositoryImpl>(singletonCImpl, 2));
-      this.voteRepositoryImplProvider = DoubleCheck.provider(new SwitchingProvider<VoteRepositoryImpl>(singletonCImpl, 5));
-      this.manifestoRepositoryImplProvider = DoubleCheck.provider(new SwitchingProvider<ManifestoRepositoryImpl>(singletonCImpl, 6));
-      this.provideAccountDaoProvider = DoubleCheck.provider(new SwitchingProvider<AccountDao>(singletonCImpl, 8));
-      this.androidAccountRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<AndroidAccountRepository>(singletonCImpl, 7));
-      this.credentialsManagerProvider = DoubleCheck.provider(new SwitchingProvider<CredentialsManager>(singletonCImpl, 10));
-      this.provideSessionManagerProvider = DoubleCheck.provider(new SwitchingProvider<SessionManager>(singletonCImpl, 9));
-      this.provideRelayUrlsProvider = DoubleCheck.provider(new SwitchingProvider<List<String>>(singletonCImpl, 12));
-      this.provideNostrRelayManagerProvider = DoubleCheck.provider(new SwitchingProvider<NostrRelayManager>(singletonCImpl, 11));
+      this.provideDatabaseProvider = DoubleCheck.provider(new SwitchingProvider<AppDatabase>(singletonCImpl, 2));
+      this.provideRelayUrlsProvider = DoubleCheck.provider(new SwitchingProvider<List<String>>(singletonCImpl, 5));
+      this.provideNostrRelayManagerProvider = DoubleCheck.provider(new SwitchingProvider<NostrRelayManager>(singletonCImpl, 4));
+      this.credentialsManagerProvider = DoubleCheck.provider(new SwitchingProvider<CredentialsManager>(singletonCImpl, 7));
+      this.provideSessionManagerProvider = DoubleCheck.provider(new SwitchingProvider<SessionManager>(singletonCImpl, 6));
+      this.providePendingDaoProvider = DoubleCheck.provider(new SwitchingProvider<PendingEventDao>(singletonCImpl, 9));
+      this.androidPendingEventQueueProvider = DoubleCheck.provider(new SwitchingProvider<AndroidPendingEventQueue>(singletonCImpl, 8));
+      this.provideDispatcherProvider = DoubleCheck.provider(new SwitchingProvider<DispatcherProvider>(singletonCImpl, 11));
+      this.nativeZkProverProvider = DoubleCheck.provider(new SwitchingProvider<NativeZkProver>(singletonCImpl, 10));
+      this.provideWsCivicPublisherProvider = DoubleCheck.provider(new SwitchingProvider<CivicPublisher>(singletonCImpl, 3));
+      this.providePollRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<PollRepository>(singletonCImpl, 1));
+      this.provideResidentRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<ResidentRepository>(singletonCImpl, 12));
+      this.provideVoteRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<VoteRepository>(singletonCImpl, 13));
+      this.provideManifestoRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<ManifestoRepository>(singletonCImpl, 14));
+      this.provideCommunityRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<CommunityRepository>(singletonCImpl, 15));
+      this.provideAccountRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<AccountRepository>(singletonCImpl, 16));
       this.provideP2PSyncEngineProvider = DoubleCheck.provider(new SwitchingProvider<P2PSyncEngine>(singletonCImpl, 0));
-      this.scorecardRepositoryImplProvider = DoubleCheck.provider(new SwitchingProvider<ScorecardRepositoryImpl>(singletonCImpl, 13));
-      this.districtRepositoryImplProvider = DoubleCheck.provider(new SwitchingProvider<DistrictRepositoryImpl>(singletonCImpl, 14));
-      this.communityRepositoryImplProvider = DoubleCheck.provider(new SwitchingProvider<CommunityRepositoryImpl>(singletonCImpl, 15));
-      this.provideVerificationRequestDaoProvider = DoubleCheck.provider(new SwitchingProvider<VerificationRequestDao>(singletonCImpl, 17));
-      this.verificationRequestRepositoryImplProvider = DoubleCheck.provider(new SwitchingProvider<VerificationRequestRepositoryImpl>(singletonCImpl, 16));
-      this.provideCivicApiProvider = DoubleCheck.provider(new SwitchingProvider<CivicApi>(singletonCImpl, 18));
-      this.provideHttpClientProvider = DoubleCheck.provider(new SwitchingProvider<HttpClient>(singletonCImpl, 20));
-      this.provideWtgBackendApiProvider = DoubleCheck.provider(new SwitchingProvider<WtgBackendApi>(singletonCImpl, 19));
-      this.provideLocationHelperProvider = DoubleCheck.provider(new SwitchingProvider<LocationHelper>(singletonCImpl, 21));
+      this.provideScorecardRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<ScorecardRepository>(singletonCImpl, 17));
+      this.provideDistrictRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<DistrictRepository>(singletonCImpl, 18));
+      this.provideVerificationRequestRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<VerificationRequestRepository>(singletonCImpl, 19));
+      this.provideCivicApiProvider = DoubleCheck.provider(new SwitchingProvider<CivicApi>(singletonCImpl, 20));
+      this.provideHttpClientProvider = DoubleCheck.provider(new SwitchingProvider<HttpClient>(singletonCImpl, 22));
+      this.provideWtgBackendApiProvider = DoubleCheck.provider(new SwitchingProvider<WtgBackendApi>(singletonCImpl, 21));
+      this.provideLocationHelperProvider = DoubleCheck.provider(new SwitchingProvider<LocationHelper>(singletonCImpl, 23));
     }
 
     @Override
@@ -630,48 +638,48 @@ public final class DaggerWeTheGovernedApplication_HiltComponents_SingletonC {
     }
 
     @Override
-    public void injectWeTheGovernedApplication(WeTheGovernedApplication weTheGovernedApplication) {
-      injectWeTheGovernedApplication2(weTheGovernedApplication);
+    public void injectWeTheGovernedApplication(WeTheGovernedApplication arg0) {
+      injectWeTheGovernedApplication2(arg0);
     }
 
     @Override
     public PollRepository pollRepository() {
-      return pollRepositoryImplProvider.get();
+      return providePollRepositoryProvider.get();
     }
 
     @Override
     public AccountRepository accountRepository() {
-      return androidAccountRepositoryProvider.get();
+      return provideAccountRepositoryProvider.get();
     }
 
     @Override
     public ResidentRepository residentRepository() {
-      return residentRepositoryImplProvider.get();
+      return provideResidentRepositoryProvider.get();
     }
 
     @Override
     public ManifestoRepository manifestoRepository() {
-      return manifestoRepositoryImplProvider.get();
+      return provideManifestoRepositoryProvider.get();
     }
 
     @Override
     public ScorecardRepository scorecardRepository() {
-      return scorecardRepositoryImplProvider.get();
+      return provideScorecardRepositoryProvider.get();
     }
 
     @Override
     public DistrictRepository districtRepository() {
-      return districtRepositoryImplProvider.get();
+      return provideDistrictRepositoryProvider.get();
     }
 
     @Override
     public CommunityRepository communityRepository() {
-      return communityRepositoryImplProvider.get();
+      return provideCommunityRepositoryProvider.get();
     }
 
     @Override
     public VerificationRequestRepository requestRepository() {
-      return verificationRequestRepositoryImplProvider.get();
+      return provideVerificationRequestRepositoryProvider.get();
     }
 
     @Override
@@ -699,6 +707,11 @@ public final class DaggerWeTheGovernedApplication_HiltComponents_SingletonC {
       return provideNostrRelayManagerProvider.get();
     }
 
+    @Override
+    public P2PSyncEngine syncEngine() {
+      return provideP2PSyncEngineProvider.get();
+    }
+
     @CanIgnoreReturnValue
     private WeTheGovernedApplication injectWeTheGovernedApplication2(
         WeTheGovernedApplication instance) {
@@ -721,70 +734,76 @@ public final class DaggerWeTheGovernedApplication_HiltComponents_SingletonC {
       public T get() {
         switch (id) {
           case 0: // net.wetheGoverned.data.P2PSyncEngine 
-          return (T) CivicNetworkModule_ProvideP2PSyncEngineFactory.provideP2PSyncEngine(singletonCImpl.pollRepositoryImplProvider.get(), singletonCImpl.residentRepositoryImplProvider.get(), singletonCImpl.voteRepositoryImplProvider.get(), singletonCImpl.manifestoRepositoryImplProvider.get(), singletonCImpl.androidAccountRepositoryProvider.get(), singletonCImpl.provideSessionManagerProvider.get(), singletonCImpl.provideNostrRelayManagerProvider.get());
+          return (T) CivicNetworkModule_ProvideP2PSyncEngineFactory.provideP2PSyncEngine(singletonCImpl.providePollRepositoryProvider.get(), singletonCImpl.provideResidentRepositoryProvider.get(), singletonCImpl.provideVoteRepositoryProvider.get(), singletonCImpl.provideManifestoRepositoryProvider.get(), singletonCImpl.provideCommunityRepositoryProvider.get(), singletonCImpl.provideAccountRepositoryProvider.get(), singletonCImpl.provideSessionManagerProvider.get(), singletonCImpl.provideNostrRelayManagerProvider.get(), singletonCImpl.provideWsCivicPublisherProvider.get());
 
-          case 1: // net.wetheGoverned.data.repository.PollRepositoryImpl 
-          return (T) new PollRepositoryImpl();
+          case 1: // net.wetheGoverned.repository.PollRepository 
+          return (T) CivicRepositoryModule_ProvidePollRepositoryFactory.providePollRepository(singletonCImpl.provideDatabaseProvider.get(), singletonCImpl.provideWsCivicPublisherProvider.get());
 
-          case 2: // net.wetheGoverned.data.repository.ResidentRepositoryImpl 
-          return (T) new ResidentRepositoryImpl(singletonCImpl.provideProfileDaoProvider.get());
-
-          case 3: // net.wetheGoverned.local.dao.ResidentProfileDao 
-          return (T) CivicDatabaseModule_ProvideProfileDaoFactory.provideProfileDao(singletonCImpl.provideDatabaseProvider.get());
-
-          case 4: // net.wetheGoverned.data.CivicDatabase 
+          case 2: // net.wetheGoverned.data.local.AppDatabase 
           return (T) CivicDatabaseModule_ProvideDatabaseFactory.provideDatabase(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
 
-          case 5: // net.wetheGoverned.data.repository.VoteRepositoryImpl 
-          return (T) new VoteRepositoryImpl();
+          case 3: // net.wetheGoverned.core.CivicPublisher 
+          return (T) CivicNetworkModule_ProvideWsCivicPublisherFactory.provideWsCivicPublisher(singletonCImpl.provideNostrRelayManagerProvider.get(), singletonCImpl.provideSessionManagerProvider.get(), singletonCImpl.androidPendingEventQueueProvider.get(), singletonCImpl.nativeZkProverProvider.get());
 
-          case 6: // net.wetheGoverned.data.repository.ManifestoRepositoryImpl 
-          return (T) new ManifestoRepositoryImpl();
-
-          case 7: // net.wetheGoverned.data.repository.AndroidAccountRepository 
-          return (T) new AndroidAccountRepository(singletonCImpl.provideAccountDaoProvider.get());
-
-          case 8: // net.wetheGoverned.local.dao.AccountDao 
-          return (T) CivicDatabaseModule_ProvideAccountDaoFactory.provideAccountDao(singletonCImpl.provideDatabaseProvider.get());
-
-          case 9: // net.wetheGoverned.session.SessionManager 
-          return (T) CivicNetworkModule_ProvideSessionManagerFactory.provideSessionManager(singletonCImpl.credentialsManagerProvider.get());
-
-          case 10: // net.wetheGoverned.session.CredentialsManager 
-          return (T) new CredentialsManager(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
-
-          case 11: // net.wetheGoverned.data.NostrRelayManager 
+          case 4: // net.wetheGoverned.data.NostrRelayManager 
           return (T) CivicNetworkModule_ProvideNostrRelayManagerFactory.provideNostrRelayManager(singletonCImpl.provideRelayUrlsProvider.get());
 
-          case 12: // java.util.List<java.lang.String> 
+          case 5: // java.util.List<java.lang.String> 
           return (T) CivicNetworkModule_ProvideRelayUrlsFactory.provideRelayUrls();
 
-          case 13: // net.wetheGoverned.data.repository.ScorecardRepositoryImpl 
-          return (T) new ScorecardRepositoryImpl();
+          case 6: // net.wetheGoverned.session.SessionManager 
+          return (T) CivicNetworkModule_ProvideSessionManagerFactory.provideSessionManager(singletonCImpl.credentialsManagerProvider.get());
 
-          case 14: // net.wetheGoverned.data.repository.DistrictRepositoryImpl 
-          return (T) new DistrictRepositoryImpl();
+          case 7: // net.wetheGoverned.session.CredentialsManager 
+          return (T) new CredentialsManager(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
 
-          case 15: // net.wetheGoverned.data.repository.CommunityRepositoryImpl 
-          return (T) new CommunityRepositoryImpl();
+          case 8: // net.wetheGoverned.session.AndroidPendingEventQueue 
+          return (T) new AndroidPendingEventQueue(singletonCImpl.providePendingDaoProvider.get());
 
-          case 16: // net.wetheGoverned.data.repository.VerificationRequestRepositoryImpl 
-          return (T) new VerificationRequestRepositoryImpl(singletonCImpl.provideVerificationRequestDaoProvider.get());
+          case 9: // net.wetheGoverned.data.local.dao.PendingEventDao 
+          return (T) CivicDatabaseModule_ProvidePendingDaoFactory.providePendingDao(singletonCImpl.provideDatabaseProvider.get());
 
-          case 17: // net.wetheGoverned.local.dao.VerificationRequestDao 
-          return (T) CivicDatabaseModule_ProvideVerificationRequestDaoFactory.provideVerificationRequestDao(singletonCImpl.provideDatabaseProvider.get());
+          case 10: // net.wetheGoverned.zk.NativeZkProver 
+          return (T) new NativeZkProver(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule), singletonCImpl.provideDispatcherProvider.get());
 
-          case 18: // net.wetheGoverned.remote.api.CivicApi 
+          case 11: // net.wetheGoverned.core.DispatcherProvider 
+          return (T) CivicBindingModule_Companion_ProvideDispatcherProviderFactory.provideDispatcherProvider();
+
+          case 12: // net.wetheGoverned.repository.ResidentRepository 
+          return (T) CivicRepositoryModule_ProvideResidentRepositoryFactory.provideResidentRepository(singletonCImpl.provideDatabaseProvider.get(), singletonCImpl.provideWsCivicPublisherProvider.get());
+
+          case 13: // net.wetheGoverned.repository.VoteRepository 
+          return (T) CivicRepositoryModule_ProvideVoteRepositoryFactory.provideVoteRepository(singletonCImpl.provideDatabaseProvider.get());
+
+          case 14: // net.wetheGoverned.repository.ManifestoRepository 
+          return (T) CivicRepositoryModule_ProvideManifestoRepositoryFactory.provideManifestoRepository(singletonCImpl.provideDatabaseProvider.get());
+
+          case 15: // net.wetheGoverned.repository.CommunityRepository 
+          return (T) CivicRepositoryModule_ProvideCommunityRepositoryFactory.provideCommunityRepository(singletonCImpl.provideDatabaseProvider.get(), singletonCImpl.provideWsCivicPublisherProvider.get());
+
+          case 16: // net.wetheGoverned.repository.AccountRepository 
+          return (T) CivicRepositoryModule_ProvideAccountRepositoryFactory.provideAccountRepository(singletonCImpl.provideDatabaseProvider.get());
+
+          case 17: // net.wetheGoverned.repository.ScorecardRepository 
+          return (T) CivicRepositoryModule_ProvideScorecardRepositoryFactory.provideScorecardRepository(singletonCImpl.provideDatabaseProvider.get());
+
+          case 18: // net.wetheGoverned.repository.DistrictRepository 
+          return (T) CivicRepositoryModule_ProvideDistrictRepositoryFactory.provideDistrictRepository(singletonCImpl.provideDatabaseProvider.get());
+
+          case 19: // net.wetheGoverned.repository.VerificationRequestRepository 
+          return (T) CivicRepositoryModule_ProvideVerificationRequestRepositoryFactory.provideVerificationRequestRepository(singletonCImpl.provideDatabaseProvider.get());
+
+          case 20: // net.wetheGoverned.remote.api.CivicApi 
           return (T) CivicNetworkModule_ProvideCivicApiFactory.provideCivicApi();
 
-          case 19: // net.wetheGoverned.remote.api.WtgBackendApi 
+          case 21: // net.wetheGoverned.remote.api.WtgBackendApi 
           return (T) CivicNetworkModule_ProvideWtgBackendApiFactory.provideWtgBackendApi(singletonCImpl.provideHttpClientProvider.get());
 
-          case 20: // io.ktor.client.HttpClient 
+          case 22: // io.ktor.client.HttpClient 
           return (T) CivicNetworkModule_ProvideHttpClientFactory.provideHttpClient();
 
-          case 21: // net.wetheGoverned.ui.location.LocationHelper 
-          return (T) CivicNetworkModule_ProvideLocationHelperFactory.provideLocationHelper(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
+          case 23: // net.wetheGoverned.LocationHelper 
+          return (T) CivicNetworkModule_ProvideLocationHelperFactory.provideLocationHelper();
 
           default: throw new AssertionError(id);
         }

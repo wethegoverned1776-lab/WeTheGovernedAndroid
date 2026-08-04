@@ -3,8 +3,8 @@
   "version": "unspecified",
   "private": true,
   "workspaces": [
-    "packages\\shared",
-    "packages\\shared-test",
+    "packages\\WeTheGoverned-shared-wasm-js",
+    "packages\\WeTheGoverned-shared-wasm-js-test",
     "packages_imported\\skiko-wasm-js\\0.8.15",
     "packages_imported\\skiko-js-wasm-runtime\\0.8.15",
     "packages_imported\\Kotlin-DateTime-library-kotlinx-datetime-wasm-js\\0.6.0",

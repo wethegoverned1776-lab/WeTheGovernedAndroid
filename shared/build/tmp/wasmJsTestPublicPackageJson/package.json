@@ -1,8 +1,8 @@
 {
-  "name": "shared-test",
+  "name": "WeTheGoverned-shared-wasm-js-test",
   "version": "0.0.0-unspecified",
-  "main": "shared-test.mjs",
-  "types": "shared-test.d.ts",
+  "main": "WeTheGoverned-shared-wasm-js-test.mjs",
+  "types": "WeTheGoverned-shared-wasm-js-test.d.ts",
   "devDependencies": {
     "typescript": "5.5.4",
     "karma": "6.4.3",

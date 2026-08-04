@@ -1,8 +1,8 @@
 {
-  "name": "shared",
+  "name": "WeTheGoverned-shared-wasm-js",
   "version": "0.0.0-unspecified",
-  "main": "shared.mjs",
-  "types": "shared.d.ts",
+  "main": "WeTheGoverned-shared-wasm-js.mjs",
+  "types": "WeTheGoverned-shared-wasm-js.d.ts",
   "devDependencies": {
     "webpack": "5.93.0",
     "webpack-cli": "5.1.4",

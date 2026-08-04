@@ -7,8 +7,8 @@ import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import javax.annotation.processing.Generated;
 import javax.inject.Provider;
-import net.wetheGoverned.data.CivicDatabase;
-import net.wetheGoverned.local.dao.ResidentProfileDao;
+import net.wetheGoverned.data.local.AppDatabase;
+import net.wetheGoverned.data.local.dao.ResidentProfileDao;
 
 @ScopeMetadata("javax.inject.Singleton")
 @QualifierMetadata
@@ -25,9 +25,9 @@ import net.wetheGoverned.local.dao.ResidentProfileDao;
     "cast"
 })
 public final class CivicDatabaseModule_ProvideProfileDaoFactory implements Factory<ResidentProfileDao> {
-  private final Provider<CivicDatabase> dbProvider;
+  private final Provider<AppDatabase> dbProvider;
 
-  public CivicDatabaseModule_ProvideProfileDaoFactory(Provider<CivicDatabase> dbProvider) {
+  public CivicDatabaseModule_ProvideProfileDaoFactory(Provider<AppDatabase> dbProvider) {
     this.dbProvider = dbProvider;
   }
 
@@ -37,11 +37,11 @@ public final class CivicDatabaseModule_ProvideProfileDaoFactory implements Facto
   }
 
   public static CivicDatabaseModule_ProvideProfileDaoFactory create(
-      Provider<CivicDatabase> dbProvider) {
+      Provider<AppDatabase> dbProvider) {
     return new CivicDatabaseModule_ProvideProfileDaoFactory(dbProvider);
   }
 
-  public static ResidentProfileDao provideProfileDao(CivicDatabase db) {
+  public static ResidentProfileDao provideProfileDao(AppDatabase db) {
     return Preconditions.checkNotNullFromProvides(CivicDatabaseModule.INSTANCE.provideProfileDao(db));
   }
 }

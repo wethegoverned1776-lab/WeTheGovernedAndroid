@@ -3,6 +3,7 @@ package net.wetheGoverned.data.local.dao
 import androidx.room3.*
 import kotlinx.coroutines.flow.Flow
 import net.wetheGoverned.data.local.entity.*
+import net.wetheGoverned.model.*
 
 @Dao
 interface DistrictDao {
@@ -172,7 +173,7 @@ interface CommunityPostDao {
     fun observePosts(districtId: String): Flow<List<CommunityPostEntity>>
 
     @Query("SELECT * FROM community_posts WHERE districtId = :districtId AND kind = :kind ORDER BY createdAt DESC")
-    fun observePostsByKind(districtId: String, kind: String): Flow<List<CommunityPostEntity>>
+    fun observePostsByKind(districtId: String, kind: CommunityPostKind): Flow<List<CommunityPostEntity>>
 
     @Query("SELECT * FROM community_posts WHERE id = :postId")
     suspend fun getPost(postId: String): CommunityPostEntity?
@@ -202,7 +203,7 @@ interface VerificationRequestDao {
     suspend fun upsertRequest(request: VerificationRequestEntity)
 
     @Query("UPDATE verification_requests SET status = :status, handledByPubKey = :handledBy WHERE id = :id")
-    suspend fun updateStatus(id: String, status: String, handledBy: String)
+    suspend fun updateStatus(id: String, status: VerificationRequestStatus, handledBy: String)
 }
 
 @Dao

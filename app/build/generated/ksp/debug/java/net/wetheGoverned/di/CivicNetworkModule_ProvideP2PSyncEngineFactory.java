@@ -7,9 +7,11 @@ import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import javax.annotation.processing.Generated;
 import javax.inject.Provider;
+import net.wetheGoverned.core.CivicPublisher;
 import net.wetheGoverned.data.NostrRelayManager;
 import net.wetheGoverned.data.P2PSyncEngine;
 import net.wetheGoverned.repository.AccountRepository;
+import net.wetheGoverned.repository.CommunityRepository;
 import net.wetheGoverned.repository.ManifestoRepository;
 import net.wetheGoverned.repository.PollRepository;
 import net.wetheGoverned.repository.ResidentRepository;
@@ -39,32 +41,40 @@ public final class CivicNetworkModule_ProvideP2PSyncEngineFactory implements Fac
 
   private final Provider<ManifestoRepository> manifestoRepositoryProvider;
 
+  private final Provider<CommunityRepository> communityRepositoryProvider;
+
   private final Provider<AccountRepository> accountRepositoryProvider;
 
   private final Provider<SessionManager> sessionManagerProvider;
 
   private final Provider<NostrRelayManager> relayManagerProvider;
 
+  private final Provider<CivicPublisher> publisherProvider;
+
   public CivicNetworkModule_ProvideP2PSyncEngineFactory(
       Provider<PollRepository> pollRepositoryProvider,
       Provider<ResidentRepository> residentRepositoryProvider,
       Provider<VoteRepository> voteRepositoryProvider,
       Provider<ManifestoRepository> manifestoRepositoryProvider,
+      Provider<CommunityRepository> communityRepositoryProvider,
       Provider<AccountRepository> accountRepositoryProvider,
       Provider<SessionManager> sessionManagerProvider,
-      Provider<NostrRelayManager> relayManagerProvider) {
+      Provider<NostrRelayManager> relayManagerProvider,
+      Provider<CivicPublisher> publisherProvider) {
     this.pollRepositoryProvider = pollRepositoryProvider;
     this.residentRepositoryProvider = residentRepositoryProvider;
     this.voteRepositoryProvider = voteRepositoryProvider;
     this.manifestoRepositoryProvider = manifestoRepositoryProvider;
+    this.communityRepositoryProvider = communityRepositoryProvider;
     this.accountRepositoryProvider = accountRepositoryProvider;
     this.sessionManagerProvider = sessionManagerProvider;
     this.relayManagerProvider = relayManagerProvider;
+    this.publisherProvider = publisherProvider;
   }
 
   @Override
   public P2PSyncEngine get() {
-    return provideP2PSyncEngine(pollRepositoryProvider.get(), residentRepositoryProvider.get(), voteRepositoryProvider.get(), manifestoRepositoryProvider.get(), accountRepositoryProvider.get(), sessionManagerProvider.get(), relayManagerProvider.get());
+    return provideP2PSyncEngine(pollRepositoryProvider.get(), residentRepositoryProvider.get(), voteRepositoryProvider.get(), manifestoRepositoryProvider.get(), communityRepositoryProvider.get(), accountRepositoryProvider.get(), sessionManagerProvider.get(), relayManagerProvider.get(), publisherProvider.get());
   }
 
   public static CivicNetworkModule_ProvideP2PSyncEngineFactory create(
@@ -72,16 +82,19 @@ public final class CivicNetworkModule_ProvideP2PSyncEngineFactory implements Fac
       Provider<ResidentRepository> residentRepositoryProvider,
       Provider<VoteRepository> voteRepositoryProvider,
       Provider<ManifestoRepository> manifestoRepositoryProvider,
+      Provider<CommunityRepository> communityRepositoryProvider,
       Provider<AccountRepository> accountRepositoryProvider,
       Provider<SessionManager> sessionManagerProvider,
-      Provider<NostrRelayManager> relayManagerProvider) {
-    return new CivicNetworkModule_ProvideP2PSyncEngineFactory(pollRepositoryProvider, residentRepositoryProvider, voteRepositoryProvider, manifestoRepositoryProvider, accountRepositoryProvider, sessionManagerProvider, relayManagerProvider);
+      Provider<NostrRelayManager> relayManagerProvider,
+      Provider<CivicPublisher> publisherProvider) {
+    return new CivicNetworkModule_ProvideP2PSyncEngineFactory(pollRepositoryProvider, residentRepositoryProvider, voteRepositoryProvider, manifestoRepositoryProvider, communityRepositoryProvider, accountRepositoryProvider, sessionManagerProvider, relayManagerProvider, publisherProvider);
   }
 
   public static P2PSyncEngine provideP2PSyncEngine(PollRepository pollRepository,
       ResidentRepository residentRepository, VoteRepository voteRepository,
-      ManifestoRepository manifestoRepository, AccountRepository accountRepository,
-      SessionManager sessionManager, NostrRelayManager relayManager) {
-    return Preconditions.checkNotNullFromProvides(CivicNetworkModule.INSTANCE.provideP2PSyncEngine(pollRepository, residentRepository, voteRepository, manifestoRepository, accountRepository, sessionManager, relayManager));
+      ManifestoRepository manifestoRepository, CommunityRepository communityRepository,
+      AccountRepository accountRepository, SessionManager sessionManager,
+      NostrRelayManager relayManager, CivicPublisher publisher) {
+    return Preconditions.checkNotNullFromProvides(CivicNetworkModule.INSTANCE.provideP2PSyncEngine(pollRepository, residentRepository, voteRepository, manifestoRepository, communityRepository, accountRepository, sessionManager, relayManager, publisher));
   }
 }

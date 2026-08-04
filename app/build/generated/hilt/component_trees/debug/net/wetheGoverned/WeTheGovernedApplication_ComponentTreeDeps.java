@@ -39,9 +39,10 @@ import hilt_aggregated_deps._dagger_hilt_android_internal_modules_HiltWrapper_Ac
 import hilt_aggregated_deps._net_wetheGoverned_MainActivity_GeneratedInjector;
 import hilt_aggregated_deps._net_wetheGoverned_WeTheGovernedApplication_GeneratedInjector;
 import hilt_aggregated_deps._net_wetheGoverned_data_P2PService_GeneratedInjector;
+import hilt_aggregated_deps._net_wetheGoverned_di_CivicBindingModule;
 import hilt_aggregated_deps._net_wetheGoverned_di_CivicDatabaseModule;
 import hilt_aggregated_deps._net_wetheGoverned_di_CivicNetworkModule;
-import hilt_aggregated_deps._net_wetheGoverned_di_CivicRepositoryBindingModule;
+import hilt_aggregated_deps._net_wetheGoverned_di_CivicRepositoryModule;
 import hilt_aggregated_deps._net_wetheGoverned_di_ViewModelModule;
 import hilt_aggregated_deps._net_wetheGoverned_ui_AppEntryPoint;
 
@@ -87,9 +88,10 @@ import hilt_aggregated_deps._net_wetheGoverned_ui_AppEntryPoint;
         _net_wetheGoverned_MainActivity_GeneratedInjector.class,
         _net_wetheGoverned_WeTheGovernedApplication_GeneratedInjector.class,
         _net_wetheGoverned_data_P2PService_GeneratedInjector.class,
+        _net_wetheGoverned_di_CivicBindingModule.class,
         _net_wetheGoverned_di_CivicDatabaseModule.class,
         _net_wetheGoverned_di_CivicNetworkModule.class,
-        _net_wetheGoverned_di_CivicRepositoryBindingModule.class,
+        _net_wetheGoverned_di_CivicRepositoryModule.class,
         _net_wetheGoverned_di_ViewModelModule.class,
         _net_wetheGoverned_ui_AppEntryPoint.class
     }

@@ -7,8 +7,8 @@ import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import javax.annotation.processing.Generated;
 import javax.inject.Provider;
-import net.wetheGoverned.data.CivicDatabase;
-import net.wetheGoverned.local.dao.AccountDao;
+import net.wetheGoverned.data.local.AppDatabase;
+import net.wetheGoverned.data.local.dao.AccountDao;
 
 @ScopeMetadata("javax.inject.Singleton")
 @QualifierMetadata
@@ -25,9 +25,9 @@ import net.wetheGoverned.local.dao.AccountDao;
     "cast"
 })
 public final class CivicDatabaseModule_ProvideAccountDaoFactory implements Factory<AccountDao> {
-  private final Provider<CivicDatabase> dbProvider;
+  private final Provider<AppDatabase> dbProvider;
 
-  public CivicDatabaseModule_ProvideAccountDaoFactory(Provider<CivicDatabase> dbProvider) {
+  public CivicDatabaseModule_ProvideAccountDaoFactory(Provider<AppDatabase> dbProvider) {
     this.dbProvider = dbProvider;
   }
 
@@ -37,11 +37,11 @@ public final class CivicDatabaseModule_ProvideAccountDaoFactory implements Facto
   }
 
   public static CivicDatabaseModule_ProvideAccountDaoFactory create(
-      Provider<CivicDatabase> dbProvider) {
+      Provider<AppDatabase> dbProvider) {
     return new CivicDatabaseModule_ProvideAccountDaoFactory(dbProvider);
   }
 
-  public static AccountDao provideAccountDao(CivicDatabase db) {
+  public static AccountDao provideAccountDao(AppDatabase db) {
     return Preconditions.checkNotNullFromProvides(CivicDatabaseModule.INSTANCE.provideAccountDao(db));
   }
 }

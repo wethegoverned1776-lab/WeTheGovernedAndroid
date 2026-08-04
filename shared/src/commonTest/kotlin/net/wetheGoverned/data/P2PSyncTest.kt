@@ -1,12 +1,13 @@
 package net.wetheGoverned.data
 
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.test.runTest
 import net.wetheGoverned.model.*
 import net.wetheGoverned.repository.*
 import net.wetheGoverned.session.SessionManager
 import net.wetheGoverned.session.UserSession
+import net.wetheGoverned.core.CivicPublisher
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -20,7 +21,15 @@ class P2PSyncTest {
         val voteRepo = InMemoryVoteRepository()
         val manifestoRepo = InMemoryManifestoRepository()
         val accountRepo = InMemoryAccountRepository()
-        val sessionManager = SessionManager()
+        val communityRepo = InMemoryCommunityRepository()
+        val sessionManager = SessionManager(object : net.wetheGoverned.session.SessionStorage {
+            private var s: UserSession? = null
+            override fun saveSession(session: UserSession) { s = session }
+            override fun getSession(): UserSession? = s
+            override fun clearSession() { s = null }
+            override fun savePrivateKeySecurely(key: String) {}
+            override fun getPrivateKeySecurely(): String? = null
+        })
         
         // Setup session
         sessionManager.login(
@@ -33,9 +42,12 @@ class P2PSyncTest {
 
         // Mock Relay Manager
         val relayManager = NostrRelayManager(emptyList())
+        val publisher = object : CivicPublisher {
+            override suspend fun signPublishImportCivicEvent(kind: Int, tags: List<List<String>>, content: String, pubKey: String) {}
+        }
 
         val syncEngine = P2PSyncEngine(
-            pollRepo, residentRepo, voteRepo, manifestoRepo, accountRepo, sessionManager, relayManager
+            pollRepo, residentRepo, voteRepo, manifestoRepo, communityRepo, accountRepo, sessionManager, relayManager, publisher
         )
         syncEngine.start()
 
@@ -45,7 +57,7 @@ class P2PSyncTest {
 
         val remotePoll = CivicPoll(
             id = "remote_1",
-            scope = CivicScope.FEDERAL,
+            scope = PollScope.FEDERAL,
             districtId = "us",
             authorPubKey = "admin",
             question = "Remote Question",
@@ -70,7 +82,7 @@ class InMemoryPollRepository : PollRepository {
     override fun observeDistrictPolls(districtId: String) = flowOf(polls.filter { it.districtId == districtId })
     override fun observePollsByIds(districtIds: List<String>) = flowOf(polls.filter { it.districtId in districtIds })
     override suspend fun getPoll(pollId: String) = Result.success(polls.first { it.id == pollId })
-    override suspend fun createPoll(districtId: String, question: String, options: List<String>, closesAt: Long?, scope: PollScope, localId: String?) = Result.success(polls.first())
+    override suspend fun createPoll(districtId: String, question: String, options: List<String>, closesAt: Long?, scope: PollScope, authorPubKey: String, localId: String?) = Result.success(polls.first())
     override suspend fun vote(pollId: String, optionId: String, voterPubKey: String) = Result.success(Unit)
     override suspend fun voteImportance(pollId: String, delta: Int, voterPubKey: String) = Result.success(Unit)
     override fun observePollsPaged(districtId: String, limit: Int, offset: Int) = flowOf(polls.filter { it.districtId == districtId }.drop(offset).take(limit))
@@ -118,4 +130,20 @@ class InMemoryManifestoRepository : ManifestoRepository {
     override suspend fun publishManifesto(districtId: String, title: String, body: String, candidatePubKey: String) = Result.failure<CandidateManifesto>(Exception())
     override suspend fun askQuestion(manifestoId: String, questionText: String, askerPubKey: String) = Result.failure<ManifestoQuestion>(Exception())
     override suspend fun answerQuestion(manifestoId: String, questionId: String, answerText: String, candidatePubKey: String) = Result.failure<ManifestoQuestion>(Exception())
+}
+
+class InMemoryAccountRepository : AccountRepository {
+    override suspend fun register(account: UserAccount) = Result.success(Unit)
+    override suspend fun login(username: String, password: String) = Result.failure<UserAccount>(Exception())
+    override suspend fun changePassword(username: String, newPassword: String) = Result.success(Unit)
+    override suspend fun updateDistrict(username: String, districtId: String) {}
+}
+
+class InMemoryCommunityRepository : CommunityRepository {
+    override fun observePosts(districtId: String, kind: CommunityPostKind?) = flowOf(emptyList<CommunityPost>())
+    override suspend fun getPost(postId: String) = Result.failure<CommunityPost>(Exception())
+    override suspend fun createPost(districtId: String, authorPubKey: String, kind: CommunityPostKind, title: String, description: String, price: Double?, location: String?, contactInfo: String?) = Result.failure<CommunityPost>(Exception())
+    override suspend fun deletePost(postId: String) = Result.success(Unit)
+    override suspend fun getAllPosts() = emptyList<CommunityPost>()
+    override suspend fun syncPost(post: CommunityPost) {}
 }

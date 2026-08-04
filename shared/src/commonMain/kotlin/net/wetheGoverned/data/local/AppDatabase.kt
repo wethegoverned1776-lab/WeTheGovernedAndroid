@@ -1,9 +1,9 @@
 package net.wetheGoverned.data.local
 
 import androidx.room3.*
+import kotlinx.coroutines.Dispatchers
 import net.wetheGoverned.data.local.dao.*
 import net.wetheGoverned.data.local.entity.*
-import net.wetheGoverned.data.local.converters.CivicConverters
 
 @Database(
     entities = [
@@ -25,7 +25,7 @@ import net.wetheGoverned.data.local.converters.CivicConverters
     version = 10,
     exportSchema = false
 )
-@TypeConverters(CivicConverters::class)
+@ColumnTypeConverters(CivicConverters::class)
 @ConstructedBy(AppDatabaseConstructor::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun districtDao(): DistrictDao
@@ -45,3 +45,11 @@ abstract class AppDatabase : RoomDatabase() {
 // The Room compiler generates the `actual` implementations.
 @Suppress("KotlinNoActualForExpect")
 expect object AppDatabaseConstructor : RoomDatabaseConstructor<AppDatabase>
+
+fun getRoomDatabase(
+    builder: RoomDatabase.Builder<AppDatabase>
+): AppDatabase {
+    return builder
+        .setQueryCoroutineContext(Dispatchers.Default)
+        .build()
+}

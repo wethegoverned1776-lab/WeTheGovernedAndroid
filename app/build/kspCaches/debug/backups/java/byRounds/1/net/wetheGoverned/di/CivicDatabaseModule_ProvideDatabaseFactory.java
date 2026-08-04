@@ -8,7 +8,7 @@ import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import javax.annotation.processing.Generated;
 import javax.inject.Provider;
-import net.wetheGoverned.data.CivicDatabase;
+import net.wetheGoverned.data.local.AppDatabase;
 
 @ScopeMetadata("javax.inject.Singleton")
 @QualifierMetadata("dagger.hilt.android.qualifiers.ApplicationContext")
@@ -24,7 +24,7 @@ import net.wetheGoverned.data.CivicDatabase;
     "KotlinInternalInJava",
     "cast"
 })
-public final class CivicDatabaseModule_ProvideDatabaseFactory implements Factory<CivicDatabase> {
+public final class CivicDatabaseModule_ProvideDatabaseFactory implements Factory<AppDatabase> {
   private final Provider<Context> contextProvider;
 
   public CivicDatabaseModule_ProvideDatabaseFactory(Provider<Context> contextProvider) {
@@ -32,7 +32,7 @@ public final class CivicDatabaseModule_ProvideDatabaseFactory implements Factory
   }
 
   @Override
-  public CivicDatabase get() {
+  public AppDatabase get() {
     return provideDatabase(contextProvider.get());
   }
 
@@ -41,7 +41,7 @@ public final class CivicDatabaseModule_ProvideDatabaseFactory implements Factory
     return new CivicDatabaseModule_ProvideDatabaseFactory(contextProvider);
   }
 
-  public static CivicDatabase provideDatabase(Context context) {
+  public static AppDatabase provideDatabase(Context context) {
     return Preconditions.checkNotNullFromProvides(CivicDatabaseModule.INSTANCE.provideDatabase(context));
   }
 }

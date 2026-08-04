@@ -82,6 +82,13 @@ open class HomeViewModel(
                 ) }
             }
             .launchIn(viewModelScope)
+            
+        // Catch relay rejection events if possible (diagnostic)
+        relayManager.events
+            .onEach { event ->
+                // Basic check for sync activity
+            }
+            .launchIn(viewModelScope)
     }
 
     fun refreshSession() {

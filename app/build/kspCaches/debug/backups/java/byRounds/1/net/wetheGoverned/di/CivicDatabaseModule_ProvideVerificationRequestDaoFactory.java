@@ -7,8 +7,8 @@ import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import javax.annotation.processing.Generated;
 import javax.inject.Provider;
-import net.wetheGoverned.data.CivicDatabase;
-import net.wetheGoverned.local.dao.VerificationRequestDao;
+import net.wetheGoverned.data.local.AppDatabase;
+import net.wetheGoverned.data.local.dao.VerificationRequestDao;
 
 @ScopeMetadata("javax.inject.Singleton")
 @QualifierMetadata
@@ -25,10 +25,10 @@ import net.wetheGoverned.local.dao.VerificationRequestDao;
     "cast"
 })
 public final class CivicDatabaseModule_ProvideVerificationRequestDaoFactory implements Factory<VerificationRequestDao> {
-  private final Provider<CivicDatabase> dbProvider;
+  private final Provider<AppDatabase> dbProvider;
 
   public CivicDatabaseModule_ProvideVerificationRequestDaoFactory(
-      Provider<CivicDatabase> dbProvider) {
+      Provider<AppDatabase> dbProvider) {
     this.dbProvider = dbProvider;
   }
 
@@ -38,11 +38,11 @@ public final class CivicDatabaseModule_ProvideVerificationRequestDaoFactory impl
   }
 
   public static CivicDatabaseModule_ProvideVerificationRequestDaoFactory create(
-      Provider<CivicDatabase> dbProvider) {
+      Provider<AppDatabase> dbProvider) {
     return new CivicDatabaseModule_ProvideVerificationRequestDaoFactory(dbProvider);
   }
 
-  public static VerificationRequestDao provideVerificationRequestDao(CivicDatabase db) {
+  public static VerificationRequestDao provideVerificationRequestDao(AppDatabase db) {
     return Preconditions.checkNotNullFromProvides(CivicDatabaseModule.INSTANCE.provideVerificationRequestDao(db));
   }
 }

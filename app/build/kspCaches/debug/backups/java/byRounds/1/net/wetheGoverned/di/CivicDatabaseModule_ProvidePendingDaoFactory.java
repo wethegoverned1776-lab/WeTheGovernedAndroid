@@ -7,8 +7,8 @@ import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import javax.annotation.processing.Generated;
 import javax.inject.Provider;
-import net.wetheGoverned.data.CivicDatabase;
-import net.wetheGoverned.local.dao.PendingEventDao;
+import net.wetheGoverned.data.local.AppDatabase;
+import net.wetheGoverned.data.local.dao.PendingEventDao;
 
 @ScopeMetadata("javax.inject.Singleton")
 @QualifierMetadata
@@ -25,9 +25,9 @@ import net.wetheGoverned.local.dao.PendingEventDao;
     "cast"
 })
 public final class CivicDatabaseModule_ProvidePendingDaoFactory implements Factory<PendingEventDao> {
-  private final Provider<CivicDatabase> dbProvider;
+  private final Provider<AppDatabase> dbProvider;
 
-  public CivicDatabaseModule_ProvidePendingDaoFactory(Provider<CivicDatabase> dbProvider) {
+  public CivicDatabaseModule_ProvidePendingDaoFactory(Provider<AppDatabase> dbProvider) {
     this.dbProvider = dbProvider;
   }
 
@@ -37,11 +37,11 @@ public final class CivicDatabaseModule_ProvidePendingDaoFactory implements Facto
   }
 
   public static CivicDatabaseModule_ProvidePendingDaoFactory create(
-      Provider<CivicDatabase> dbProvider) {
+      Provider<AppDatabase> dbProvider) {
     return new CivicDatabaseModule_ProvidePendingDaoFactory(dbProvider);
   }
 
-  public static PendingEventDao providePendingDao(CivicDatabase db) {
+  public static PendingEventDao providePendingDao(AppDatabase db) {
     return Preconditions.checkNotNullFromProvides(CivicDatabaseModule.INSTANCE.providePendingDao(db));
   }
 }

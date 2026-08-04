@@ -7,8 +7,8 @@ import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import javax.annotation.processing.Generated;
 import javax.inject.Provider;
-import net.wetheGoverned.data.CivicDatabase;
-import net.wetheGoverned.local.dao.VoteDao;
+import net.wetheGoverned.data.local.AppDatabase;
+import net.wetheGoverned.data.local.dao.VoteDao;
 
 @ScopeMetadata("javax.inject.Singleton")
 @QualifierMetadata
@@ -25,9 +25,9 @@ import net.wetheGoverned.local.dao.VoteDao;
     "cast"
 })
 public final class CivicDatabaseModule_ProvideVoteDaoFactory implements Factory<VoteDao> {
-  private final Provider<CivicDatabase> dbProvider;
+  private final Provider<AppDatabase> dbProvider;
 
-  public CivicDatabaseModule_ProvideVoteDaoFactory(Provider<CivicDatabase> dbProvider) {
+  public CivicDatabaseModule_ProvideVoteDaoFactory(Provider<AppDatabase> dbProvider) {
     this.dbProvider = dbProvider;
   }
 
@@ -36,12 +36,11 @@ public final class CivicDatabaseModule_ProvideVoteDaoFactory implements Factory<
     return provideVoteDao(dbProvider.get());
   }
 
-  public static CivicDatabaseModule_ProvideVoteDaoFactory create(
-      Provider<CivicDatabase> dbProvider) {
+  public static CivicDatabaseModule_ProvideVoteDaoFactory create(Provider<AppDatabase> dbProvider) {
     return new CivicDatabaseModule_ProvideVoteDaoFactory(dbProvider);
   }
 
-  public static VoteDao provideVoteDao(CivicDatabase db) {
+  public static VoteDao provideVoteDao(AppDatabase db) {
     return Preconditions.checkNotNullFromProvides(CivicDatabaseModule.INSTANCE.provideVoteDao(db));
   }
 }

@@ -1,10 +1,10 @@
 {
     "logs": [
         {
-            "outputFile": "net.wetheGoverned.app-mergeDebugResources-75:/values-watch-v20/values-watch-v20.xml",
+            "outputFile": "net.wetheGoverned.app-mergeDebugResources-72:/values-watch-v20/values-watch-v20.xml",
             "map": [
                 {
-                    "source": "C:\\Users\\rodne\\.gradle\\caches\\8.13\\transforms\\28c6f1eea7e498e3f041b163d65ff9f0\\transformed\\core-splashscreen-1.2.0\\res\\values-watch-v20\\values-watch-v20.xml",
+                    "source": "C:\\Users\\rodne\\.gradle\\caches\\8.13\\transforms\\119bfc1893c03ee99581c3ae875d4c8a\\transformed\\core-splashscreen-1.2.0\\res\\values-watch-v20\\values-watch-v20.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,7,8,9",
                         "startColumns": "4,4,4,4,4,4,4,4",
@@ -14,7 +14,7 @@
                     }
                 },
                 {
-                    "source": "C:\\Users\\rodne\\.gradle\\caches\\8.13\\transforms\\82e62ac96aba567955e160ab480bee7d\\transformed\\appcompat-1.7.0\\res\\values-watch-v20\\values-watch-v20.xml",
+                    "source": "C:\\Users\\rodne\\.gradle\\caches\\8.13\\transforms\\92e4c2a621e2fd7aefcbb095254bab38\\transformed\\appcompat-1.7.0\\res\\values-watch-v20\\values-watch-v20.xml",
                     "from": {
                         "startLines": "2,5,8",
                         "startColumns": "4,4,4",

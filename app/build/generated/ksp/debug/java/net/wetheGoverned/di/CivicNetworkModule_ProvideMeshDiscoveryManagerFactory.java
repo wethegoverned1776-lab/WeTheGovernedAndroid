@@ -6,7 +6,11 @@ import dagger.internal.Preconditions;
 import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import javax.annotation.processing.Generated;
+import javax.inject.Provider;
+import net.wetheGoverned.core.CivicPublisher;
 import net.wetheGoverned.data.MeshDiscoveryManager;
+import net.wetheGoverned.data.NostrRelayManager;
+import net.wetheGoverned.session.SessionManager;
 
 @ScopeMetadata("javax.inject.Singleton")
 @QualifierMetadata
@@ -23,20 +27,33 @@ import net.wetheGoverned.data.MeshDiscoveryManager;
     "cast"
 })
 public final class CivicNetworkModule_ProvideMeshDiscoveryManagerFactory implements Factory<MeshDiscoveryManager> {
+  private final Provider<SessionManager> sessionManagerProvider;
+
+  private final Provider<CivicPublisher> publisherProvider;
+
+  private final Provider<NostrRelayManager> relayManagerProvider;
+
+  public CivicNetworkModule_ProvideMeshDiscoveryManagerFactory(
+      Provider<SessionManager> sessionManagerProvider, Provider<CivicPublisher> publisherProvider,
+      Provider<NostrRelayManager> relayManagerProvider) {
+    this.sessionManagerProvider = sessionManagerProvider;
+    this.publisherProvider = publisherProvider;
+    this.relayManagerProvider = relayManagerProvider;
+  }
+
   @Override
   public MeshDiscoveryManager get() {
-    return provideMeshDiscoveryManager();
+    return provideMeshDiscoveryManager(sessionManagerProvider.get(), publisherProvider.get(), relayManagerProvider.get());
   }
 
-  public static CivicNetworkModule_ProvideMeshDiscoveryManagerFactory create() {
-    return InstanceHolder.INSTANCE;
+  public static CivicNetworkModule_ProvideMeshDiscoveryManagerFactory create(
+      Provider<SessionManager> sessionManagerProvider, Provider<CivicPublisher> publisherProvider,
+      Provider<NostrRelayManager> relayManagerProvider) {
+    return new CivicNetworkModule_ProvideMeshDiscoveryManagerFactory(sessionManagerProvider, publisherProvider, relayManagerProvider);
   }
 
-  public static MeshDiscoveryManager provideMeshDiscoveryManager() {
-    return Preconditions.checkNotNullFromProvides(CivicNetworkModule.INSTANCE.provideMeshDiscoveryManager());
-  }
-
-  private static final class InstanceHolder {
-    private static final CivicNetworkModule_ProvideMeshDiscoveryManagerFactory INSTANCE = new CivicNetworkModule_ProvideMeshDiscoveryManagerFactory();
+  public static MeshDiscoveryManager provideMeshDiscoveryManager(SessionManager sessionManager,
+      CivicPublisher publisher, NostrRelayManager relayManager) {
+    return Preconditions.checkNotNullFromProvides(CivicNetworkModule.INSTANCE.provideMeshDiscoveryManager(sessionManager, publisher, relayManager));
   }
 }

@@ -47,9 +47,10 @@ import dagger.hilt.migration.DisableInstallInCheck;
 import javax.annotation.processing.Generated;
 import javax.inject.Singleton;
 import net.wetheGoverned.data.P2PService_GeneratedInjector;
+import net.wetheGoverned.di.CivicBindingModule;
 import net.wetheGoverned.di.CivicDatabaseModule;
 import net.wetheGoverned.di.CivicNetworkModule;
-import net.wetheGoverned.di.CivicRepositoryBindingModule;
+import net.wetheGoverned.di.CivicRepositoryModule;
 import net.wetheGoverned.di.ViewModelModule;
 import net.wetheGoverned.ui.AppEntryPoint;
 
@@ -131,9 +132,10 @@ public final class WeTheGovernedApplication_HiltComponents {
   @Component(
       modules = {
           ApplicationContextModule.class,
+          CivicBindingModule.class,
           CivicDatabaseModule.class,
           CivicNetworkModule.class,
-          CivicRepositoryBindingModule.class,
+          CivicRepositoryModule.class,
           HiltWrapper_FragmentGetContextFix_FragmentGetContextFixModule.class,
           ActivityRetainedCBuilderModule.class,
           ServiceCBuilderModule.class

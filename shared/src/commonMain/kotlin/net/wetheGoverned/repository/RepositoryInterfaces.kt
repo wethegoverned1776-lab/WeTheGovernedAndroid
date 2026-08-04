@@ -13,6 +13,7 @@ interface PollRepository {
         options: List<String>,
         closesAt: Long?,
         scope: CivicScope,
+        authorPubKey: String,
         localId: String? = null
     ): Result<CivicPoll>
     suspend fun vote(pollId: String, optionId: String, voterPubKey: String): Result<Unit>

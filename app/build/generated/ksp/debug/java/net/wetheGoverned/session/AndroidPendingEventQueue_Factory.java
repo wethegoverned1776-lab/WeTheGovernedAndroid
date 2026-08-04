@@ -6,7 +6,7 @@ import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import javax.annotation.processing.Generated;
 import javax.inject.Provider;
-import net.wetheGoverned.local.dao.PendingEventDao;
+import net.wetheGoverned.data.local.dao.PendingEventDao;
 
 @ScopeMetadata("javax.inject.Singleton")
 @QualifierMetadata
