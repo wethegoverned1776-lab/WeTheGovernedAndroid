@@ -7,7 +7,7 @@ import net.wetheGoverned.App
 import net.wetheGoverned.repository.*
 import net.wetheGoverned.session.*
 import net.wetheGoverned.data.*
-import net.wetheGoverned.data.local.*
+// import net.wetheGoverned.data.local.* // Disabled due to Wasm compiler crash
 import io.ktor.client.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.serialization.kotlinx.json.*
@@ -65,20 +65,16 @@ fun main() {
             )
         }
 
-        // Initialize Room Database
-        val databaseBuilder = remember { getDatabaseBuilder() }
-        val database = remember { getRoomDatabase(databaseBuilder) }
-
-        // Core Repositories (Room-based)
-        val voteRepository: VoteRepository = remember { RoomVoteRepository(database) }
-        val pollRepository: PollRepository = remember { RoomPollRepository(database, publisher) }
-        val residentRepository: ResidentRepository = remember { RoomResidentRepository(database, publisher) }
-        val communityRepository: CommunityRepository = remember { RoomCommunityRepository(database, publisher) }
-        val accountRepository: AccountRepository = remember { RoomAccountRepository(database) }
-        val requestRepository: VerificationRequestRepository = remember { RoomVerificationRequestRepository(database) }
-        val scorecardRepository: ScorecardRepository = remember { RoomScorecardRepository(database) }
-        val manifestoRepository: ManifestoRepository = remember { RoomManifestoRepository(database) }
-        val districtRepository: DistrictRepository = remember { RoomDistrictRepository(database) }
+        // Core Repositories (Web-specific LocalStorage based to bypass Room compiler issues for now)
+        val voteRepository: VoteRepository = remember { WebVoteRepository(publisher) }
+        val pollRepository: PollRepository = remember { WebPollRepository(publisher) }
+        val residentRepository: ResidentRepository = remember { WebResidentRepository(publisher) }
+        val communityRepository: CommunityRepository = remember { WebCommunityRepository(publisher) }
+        val accountRepository: AccountRepository = remember { WebAccountRepository() }
+        val requestRepository: VerificationRequestRepository = remember { WebVerificationRequestRepository() }
+        val scorecardRepository: ScorecardRepository = remember { WebScorecardRepository() }
+        val manifestoRepository: ManifestoRepository = remember { WebManifestoRepository() }
+        val districtRepository: DistrictRepository = remember { WebDistrictRepository() }
         
         val meshDiscoveryManager = remember { WasmMeshDiscoveryManager(sessionManager, publisher, relayManager) }
 

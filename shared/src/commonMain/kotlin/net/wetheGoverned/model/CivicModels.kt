@@ -106,7 +106,7 @@ typealias CivicScope = PollScope
 data class RepresentativeScorecard(
     val representativePubKey: String,
     val districtId: String,
-    val scope: CivicScope = CivicScope.STATE,
+    val scope: PollScope = PollScope.STATE,
     val name: String,
     val party: String,
     val overallScore: Int,
@@ -127,7 +127,7 @@ data class CandidateManifesto(
     val id: String,
     val candidatePubKey: String,
     val districtId: String,
-    val scope: CivicScope = CivicScope.STATE,
+    val scope: PollScope = PollScope.STATE,
     val title: String,
     val body: String,
     val publishedAt: Long,
