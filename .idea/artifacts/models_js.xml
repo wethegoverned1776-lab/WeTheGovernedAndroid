@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="models-js">
+    <output-path>$PROJECT_DIR$/models/build/libs</output-path>
+    <root id="archive" name="models-js.jar">
+      <element id="module-output" name="WeTheGoverned.models.jsMain" />
+    </root>
+  </artifact>
+</component>
