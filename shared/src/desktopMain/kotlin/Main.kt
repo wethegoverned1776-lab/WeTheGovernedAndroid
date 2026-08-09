@@ -50,7 +50,6 @@ fun main() {
             "wss://offchain.pub",
             "wss://relay.primal.net",
             "wss://nostr.mom",
-            "wss://atlas.nostr.land",
             "wss://bitcoiner.social",
             "wss://purplepag.es",
             "wss://no.str.cr"
