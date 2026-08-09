@@ -1,5 +1,6 @@
 package net.wetheGoverned.ui
 
+import kotlinx.serialization.Serializable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -209,4 +210,5 @@ fun AuthContent(
     }
 }
 
+@Serializable
 enum class AuthMode { LOGIN, CHANGE_PASSWORD }

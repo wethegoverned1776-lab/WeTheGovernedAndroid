@@ -29,7 +29,7 @@ abstract class FileBasedRepository(private val type: String) {
         return if (file.exists()) json.decodeFromString(serializer, file.readText()) else null
     }
 
-    protected fun listIds(): List<String> = baseDir.listFiles { f -> f.extension == "json" && f.name != "index.json" }?.map { it.nameWithoutExtension } ?: emptyList()
+    fun listIds(): List<String> = baseDir.listFiles { f -> f.extension == "json" && f.name != "index.json" }?.map { it.nameWithoutExtension } ?: emptyList()
 
     protected suspend fun addToIndex(key: String, value: String, id: String) = indexMutex.withLock {
         val index = loadIndex()
@@ -61,15 +61,15 @@ abstract class FileBasedRepository(private val type: String) {
 
 class DesktopVoteRepository(private val publisher: CivicPublisher? = null) : VoteRepository, FileBasedRepository("votes") {
     override fun observeAllVotes(): Flow<List<CivicVote>> = flow {
-        emit(listIds().mapNotNull { load(it, CivicVote.serializer()) })
+        emit(listIds().mapNotNull { load(it, CivicVoteSerializer) })
     }
     override fun observeVotesByUser(pubKey: String): Flow<List<CivicVote>> = flow {
-        emit(listIds().mapNotNull { load(it, CivicVote.serializer()) }.filter { it.voterPubKey == pubKey })
+        emit(listIds().mapNotNull { load(it, CivicVoteSerializer) }.filter { it.voterPubKey == pubKey })
     }
     override suspend fun flagVote(voteId: String, reason: String, expiresAt: Long): Result<Unit> = Result.success(Unit)
     override suspend fun disputeVote(voteId: String, comment: String): Result<Unit> = Result.success(Unit)
     override suspend fun resolveVote(voteId: String): Result<Unit> = Result.success(Unit)
-    override suspend fun syncVote(vote: CivicVote) { save(vote.id, vote, CivicVote.serializer()) }
+    override suspend fun syncVote(vote: CivicVote) { save(vote.id, vote, CivicVoteSerializer) }
 }
 
 class DesktopPollRepository(private val publisher: CivicPublisher? = null) : PollRepository, FileBasedRepository("polls") {
@@ -80,49 +80,50 @@ class DesktopPollRepository(private val publisher: CivicPublisher? = null) : Pol
         flow {
             val stateId = districtId.substringBeforeLast('-', "us")
             val ids = getFromIndexPaged("district", districtId, 100, 0) + getFromIndexPaged("district", stateId, 100, 0) + getFromIndexPaged("district", "us", 100, 0)
-            emit(ids.distinct().mapNotNull { load(it, CivicPoll.serializer()) })
+            emit(ids.distinct().mapNotNull { load(it, CivicPollSerializer) })
         }
     }
 
     override fun observePollsByIds(districtIds: List<String>): Flow<List<CivicPoll>> = samplingPollsFlow.flatMapLatest {
         flow {
             val allIds = districtIds.flatMap { getFromIndexPaged("district", it, 50, 0) }
-            emit(allIds.distinct().mapNotNull { load(it, CivicPoll.serializer()) })
+            emit(allIds.distinct().mapNotNull { load(it, CivicPollSerializer) })
         }
     }
 
-    override fun observePollsByScope(scope: PollScope, districtId: String): Flow<List<CivicPoll>> = samplingPollsFlow.flatMapLatest {
+    override fun observePollsByScope(scope: CivicScope, districtId: String): Flow<List<CivicPoll>> = samplingPollsFlow.flatMapLatest {
         flow {
             val key = when(scope) {
-                PollScope.FEDERAL -> "us"
-                PollScope.STATE -> districtId.substringBeforeLast('-', "us")
+                CivicScope.FEDERAL -> "us"
+                CivicScope.STATE -> districtId.substringBeforeLast('-', "us")
                 else -> districtId
             }
-            emit(getFromIndexPaged("district", key, 100, 0).mapNotNull { load(it, CivicPoll.serializer()) })
+            emit(getFromIndexPaged("district", key, 100, 0).mapNotNull { load(it, CivicPollSerializer) })
         }
     }
 
     override suspend fun getPoll(pollId: String): Result<CivicPoll> =
-        load(pollId, CivicPoll.serializer())?.let { Result.success(it) } ?: Result.failure(Exception("Not found"))
+        load(pollId, CivicPollSerializer)?.let { Result.success(it) } ?: Result.failure(Exception("Not found"))
 
-    override suspend fun createPoll(districtId: String, question: String, options: List<String>, closesAt: Long?, scope: PollScope, authorPubKey: String, localId: String?): Result<CivicPoll> {
-        val now = System.currentTimeMillis()
-        val id = computeSha256("poll_${question}_${authorPubKey}_$now").take(64)
-        val newPoll = CivicPoll(id = id, scope = scope, districtId = districtId, localId = localId, authorPubKey = authorPubKey, question = question, options = options.mapIndexed { i, s -> PollOption("opt_$i", s, 0, 0f) }, status = PollStatus.ACTIVE, createdAt = now, closesAt = closesAt ?: (now + 86400000), totalVotes = 0)
-        save(id, newPoll, CivicPoll.serializer())
+    override suspend fun createPoll(districtId: String, question: String, options: List<String>, closesAt: Long?, scope: CivicScope, authorPubKey: String, localId: String?): Result<CivicPoll> {
+        val normalizedPubKey = authorPubKey.lowercase()
+        val now = Clock.System.now().toEpochMilliseconds()
+        val id = sha256("poll_${question}_${normalizedPubKey}_$now").take(64)
+        val newPoll = CivicPoll(id = id, scope = scope, districtId = districtId, localId = localId, authorPubKey = normalizedPubKey, question = question, options = options.mapIndexed { i, s -> PollOption("opt_$i", label = s, 0, 0f) }, status = PollStatus.ACTIVE, createdAt = now, closesAt = closesAt ?: (now + 86400000), totalVotes = 0)
+        save(id, newPoll, CivicPollSerializer)
         addToIndex("district", districtId, id)
         localId?.let { addToIndex("district", it, id) }
         
         publisher?.signPublishImportCivicEvent(
             kind = when(scope) {
-                PollScope.FEDERAL -> CivicEventKind.FEDERAL_POLL
-                PollScope.STATE -> CivicEventKind.STATE_POLL
-                PollScope.LOCAL -> CivicEventKind.LOCAL_POLL
+                CivicScope.FEDERAL -> CivicEventKind.FEDERAL_POLL
+                CivicScope.STATE -> CivicEventKind.STATE_POLL
+                CivicScope.LOCAL -> CivicEventKind.LOCAL_POLL
                 else -> CivicEventKind.DISTRICT_POLL
             },
             tags = listOf(listOf("d", id), listOf("g", districtId)),
-            content = json.encodeToString(CivicPoll.serializer(), newPoll),
-            pubKey = authorPubKey
+            content = json.encodeToString(CivicPollSerializer, newPoll),
+            pubKey = normalizedPubKey
         )
         
         _pollsFlow.emit(Unit)
@@ -130,18 +131,19 @@ class DesktopPollRepository(private val publisher: CivicPublisher? = null) : Pol
     }
 
     override suspend fun vote(pollId: String, optionId: String, voterPubKey: String): Result<Unit> {
-        val poll = load(pollId, CivicPoll.serializer()) ?: return Result.failure(Exception("Poll not found"))
+        val normalizedPubKey = voterPubKey.lowercase()
+        val poll = load(pollId, CivicPollSerializer) ?: return Result.failure(Exception("Poll not found"))
         val updatedOptions = poll.options.map { opt -> if (opt.id == optionId) opt.copy(voteCount = opt.voteCount + 1) else opt }
         val newTotal = poll.totalVotes + 1
         val updatedPoll = poll.copy(options = updatedOptions.map { it.copy(percentageOfTotal = it.voteCount.toFloat() / newTotal) }, totalVotes = newTotal, residentVoteOption = optionId)
-        save(pollId, updatedPoll, CivicPoll.serializer())
+        save(pollId, updatedPoll, CivicPollSerializer)
         
-        val now = System.currentTimeMillis()
+        val now = Clock.System.now().toEpochMilliseconds()
         val vote = CivicVote(
-            id = computeSha256("vote_${pollId}_${voterPubKey}_$now").take(64),
+            id = sha256("vote_${pollId}_${normalizedPubKey}_$now").take(64),
             pollId = pollId,
             optionId = optionId,
-            voterPubKey = voterPubKey,
+            voterPubKey = normalizedPubKey,
             voterName = "Resident",
             timestamp = now,
             nonce = 0L,
@@ -154,8 +156,8 @@ class DesktopPollRepository(private val publisher: CivicPublisher? = null) : Pol
                 listOf("g", poll.districtId),
                 listOf("e", pollId)
             ),
-            content = Json.encodeToString(CivicVote.serializer(), vote),
-            pubKey = voterPubKey
+            content = json.encodeToString(CivicVoteSerializer, vote),
+            pubKey = normalizedPubKey
         )
         
         _pollsFlow.emit(Unit)
@@ -163,18 +165,19 @@ class DesktopPollRepository(private val publisher: CivicPublisher? = null) : Pol
     }
 
     override suspend fun voteImportance(pollId: String, delta: Int, voterPubKey: String): Result<Unit> {
-        val poll = load(pollId, CivicPoll.serializer()) ?: return Result.failure(Exception("Poll not found"))
+        val normalizedPubKey = voterPubKey.lowercase()
+        val poll = load(pollId, CivicPollSerializer) ?: return Result.failure(Exception("Poll not found"))
         val updatedPoll = poll.copy(
             importanceScore = poll.importanceScore + delta,
             userImportanceVote = delta
         )
-        save(pollId, updatedPoll, CivicPoll.serializer())
+        save(pollId, updatedPoll, CivicPollSerializer)
         
         publisher?.signPublishImportCivicEvent(
             kind = CivicEventKind.IMPORTANCE_VOTE,
-            tags = listOf(listOf("d", "${pollId}_$voterPubKey"), listOf("g", poll.districtId)),
+            tags = listOf(listOf("d", "${pollId}_$normalizedPubKey"), listOf("g", poll.districtId)),
             content = "$pollId:$delta",
-            pubKey = voterPubKey
+            pubKey = normalizedPubKey
         )
 
         _pollsFlow.emit(Unit)
@@ -182,7 +185,7 @@ class DesktopPollRepository(private val publisher: CivicPublisher? = null) : Pol
     }
 
     override fun observePollsPaged(districtId: String, limit: Int, offset: Int): Flow<List<CivicPoll>> = samplingPollsFlow.flatMapLatest {
-        flow { emit(getFromIndexPaged("district", districtId, limit, offset).mapNotNull { load(it, CivicPoll.serializer()) }) }
+        flow { emit(getFromIndexPaged("district", districtId, limit, offset).mapNotNull { load(it, CivicPollSerializer) }) }
     }
 
     override fun observePollPosts(pollId: String): Flow<List<PollPost>> = flow { emit(emptyList()) }
@@ -191,18 +194,18 @@ class DesktopPollRepository(private val publisher: CivicPublisher? = null) : Pol
     override suspend fun createPost(pollId: String, optionId: String, authorName: String, content: String, headline: String?, parentPostId: String?): Result<PollPost> = Result.failure(Exception("Not implemented"))
     override suspend fun voteOnPost(postId: String, delta: Int): Result<Unit> = Result.success(Unit)
     override suspend fun getPost(postId: String): Result<PollPost> = Result.failure(Exception("Stub"))
-    override suspend fun getAllPolls(): List<CivicPoll> = listIds().mapNotNull { runBlocking { load(it, CivicPoll.serializer()) } }
+    override suspend fun getAllPolls(): List<CivicPoll> = listIds().mapNotNull { runBlocking { load(it, CivicPollSerializer) } }
     override suspend fun getPollsForJurisdictions(jurisdictionIds: List<String>, since: Long): List<CivicPoll> = getAllPolls().filter { (it.districtId in jurisdictionIds || it.localId in jurisdictionIds) && it.createdAt > since }
     
     override suspend fun syncPoll(poll: CivicPoll) {
-        save(poll.id, poll, CivicPoll.serializer())
+        save(poll.id, poll, CivicPollSerializer)
         addToIndex("district", poll.districtId, poll.id)
         poll.localId?.let { addToIndex("district", it, poll.id) }
         _pollsFlow.emit(Unit)
     }
 
     override suspend fun syncVote(vote: CivicVote) {
-        val poll = load(vote.pollId, CivicPoll.serializer()) ?: return
+        val poll = load(vote.pollId, CivicPollSerializer) ?: return
         val updatedOptions = poll.options.map { opt ->
             if (opt.id == vote.optionId) opt.copy(voteCount = opt.voteCount + 1) else opt
         }
@@ -211,53 +214,57 @@ class DesktopPollRepository(private val publisher: CivicPublisher? = null) : Pol
             options = updatedOptions.map { it.copy(percentageOfTotal = it.voteCount.toFloat() / newTotal) },
             totalVotes = newTotal
         )
-        save(vote.pollId, updatedPoll, CivicPoll.serializer())
+        save(vote.pollId, updatedPoll, CivicPollSerializer)
         _pollsFlow.emit(Unit)
     }
 
     override suspend fun markVoted(pollId: String, optionId: String) {
-        val poll = load(pollId, CivicPoll.serializer()) ?: return
+        val poll = load(pollId, CivicPollSerializer) ?: return
         if (poll.residentVoteOption == optionId) return
         val updated = poll.copy(residentVoteOption = optionId)
-        save(pollId, updated, CivicPoll.serializer())
+        save(pollId, updated, CivicPollSerializer)
         _pollsFlow.emit(Unit)
     }
 }
 
 class DesktopResidentRepository(private val publisher: CivicPublisher? = null) : ResidentRepository, FileBasedRepository("residents") {
-    override fun observeProfile(pubKey: String): Flow<ResidentProfile?> = flow { emit(load(pubKey, ResidentProfile.serializer())) }
+    override fun observeProfile(pubKey: String): Flow<ResidentProfile?> = flow { emit(load(pubKey.lowercase(), ResidentProfileSerializer)) }
     override fun observeProfileByFingerprint(fingerprint: String): Flow<ResidentProfile?> = flow { emit(null) }
     override suspend fun getResidentCountAtAddress(fingerprint: String): Int = 0
     override suspend fun getVouchCount(notaryPubKey: String): Int = 0
-    override suspend fun getProfile(pubKey: String): Result<ResidentProfile> = load(pubKey, ResidentProfile.serializer())?.let { Result.success(it) } ?: Result.failure(Exception("Not found"))
+    override suspend fun getProfile(pubKey: String): Result<ResidentProfile> = load(pubKey.lowercase(), ResidentProfileSerializer)?.let { Result.success(it) } ?: Result.failure(Exception("Not found"))
     override suspend fun upgradeTier(pubKey: String, newTier: VerificationTier, proofToken: String): Result<ResidentProfile> = Result.failure(Exception("Not implemented"))
     override suspend fun upgradeTierWithFingerprint(pubKey: String, newTier: VerificationTier, proofToken: String, fingerprint: String): Result<ResidentProfile> = Result.failure(Exception("Not implemented"))
     override suspend fun upgradeTierFull(pubKey: String, newTier: VerificationTier, fingerprint: String, verifiedBy: String?): Result<Unit> = Result.success(Unit)
     override suspend fun updateProfile(pubKey: String, displayName: String, avatarUrl: String?): Result<ResidentProfile> = Result.failure(Exception("Not implemented"))
     override suspend fun updateDistrict(pubKey: String, districtId: String): Result<Unit> = Result.success(Unit)
     override fun observeProfilesVerifiedBy(verifierPubKey: String): Flow<List<ResidentProfile>> = flowOf(emptyList())
-    override suspend fun createProfile(profile: ResidentProfile) { save(profile.pubKey, profile, ResidentProfile.serializer()) }
+    override suspend fun createProfile(profile: ResidentProfile) { save(profile.pubKey.lowercase(), profile, ResidentProfileSerializer) }
 }
 
 class DesktopCommunityRepository(private val publisher: CivicPublisher? = null) : CommunityRepository, FileBasedRepository("community") {
-    override fun observePosts(kind: CommunityPostKind, districtId: String): Flow<List<CommunityPost>> = flowOf(emptyList())
-    override suspend fun createPost(kind: CommunityPostKind, districtId: String, authorPubKey: String, authorName: String, title: String, content: String, contactInfo: String?): Result<CommunityPost> = Result.failure(Exception("Not implemented"))
-    override suspend fun syncPost(post: CommunityPost) { save(post.id, post, CommunityPost.serializer()) }
+    override fun observePosts(districtId: String, kind: CommunityPostKind?): Flow<List<CommunityPost>> = flowOf(emptyList())
+    override suspend fun getPost(postId: String): Result<CommunityPost> = Result.failure(Exception("Not found"))
+    override suspend fun createPost(districtId: String, authorPubKey: String, kind: CommunityPostKind, title: String, description: String, price: Double?, location: String?, contactInfo: String?): Result<CommunityPost> = Result.failure(Exception("Not implemented"))
+    override suspend fun deletePost(postId: String): Result<Unit> = Result.success(Unit)
+    override suspend fun getAllPosts(): List<CommunityPost> = emptyList()
+    override suspend fun syncPost(post: CommunityPost) { save(post.id, post, CommunityPostSerializer) }
 }
 
 class DesktopAccountRepository : AccountRepository, FileBasedRepository("accounts") {
-    override suspend fun login(username: String, password: String): Result<UserAccount> = load(username, UserAccount.serializer())?.let { Result.success(it) } ?: Result.failure(Exception("Login failed"))
-    override suspend fun register(account: UserAccount): Result<UserAccount> {
-        save(account.username, account, UserAccount.serializer())
-        return Result.success(account)
+    override suspend fun login(username: String, password: String): Result<UserAccount> = load(username, UserAccountSerializer)?.let { Result.success(it) } ?: Result.failure(Exception("Login failed"))
+    override suspend fun register(account: UserAccount): Result<Unit> {
+        save(account.username, account, UserAccountSerializer)
+        return Result.success(Unit)
     }
-    override suspend fun changePassword(username: String, oldPassword: String, newPassword: String): Result<Unit> = Result.success(Unit)
-    override suspend fun resetPassword(username: String): Result<Unit> = Result.success(Unit)
-    override suspend fun deleteAccount(username: String): Result<Unit> = Result.success(Unit)
+    override suspend fun changePassword(username: String, newPassword: String): Result<Unit> = Result.success(Unit)
+    override suspend fun updateDistrict(username: String, districtId: String) {}
 }
 
 class DesktopVerificationRequestRepository : VerificationRequestRepository {
-    override fun observeRequestsForVerifier(verifierPubKey: String): Flow<List<VerificationRequest>> = flowOf(emptyList())
-    override suspend fun submitRequest(residentPubKey: String, verifierPubKey: String, proofData: String): Result<VerificationRequest> = Result.failure(Exception("Not implemented"))
-    override suspend fun updateRequestStatus(requestId: String, status: VerificationRequestStatus): Result<Unit> = Result.success(Unit)
+    override fun observeRequestsForDistrict(districtId: String): Flow<List<VerificationRequest>> = flowOf(emptyList())
+    override fun observeRequestsForState(stateId: String): Flow<List<VerificationRequest>> = flowOf(emptyList())
+    override suspend fun createRequest(request: VerificationRequest): Result<Unit> = Result.success(Unit)
+    override suspend fun updateRequestStatus(requestId: String, status: VerificationRequestStatus, handledBy: String): Result<Unit> = Result.success(Unit)
+    override suspend fun getRequest(requestId: String): Result<VerificationRequest> = Result.failure(Exception("Not found"))
 }

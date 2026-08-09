@@ -2,15 +2,13 @@ plugins {
     // Declared here but NOT applied — subprojects apply them themselves
     id("com.android.application")             version "8.13.2" apply false
     id("com.android.library")                 version "8.13.2" apply false
-    id("org.jetbrains.kotlin.android")        version "2.0.21" apply false
-    id("org.jetbrains.kotlin.multiplatform")   version "2.0.21" apply false
-    id("org.jetbrains.compose")               version "1.7.0" apply false
-    id("org.jetbrains.kotlin.plugin.compose") version "2.0.21" apply false
-    id("org.jetbrains.kotlin.plugin.serialization") version "2.0.21" apply false
+    id("org.jetbrains.kotlin.multiplatform")   version "2.1.0" apply false
+    id("org.jetbrains.compose")               version "1.7.1" apply false
+    id("org.jetbrains.kotlin.plugin.compose") version "2.1.0" apply false
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.1.0" apply false
     id("com.google.dagger.hilt.android")    version "2.51.1" apply false
-    id("com.google.devtools.ksp")           version "2.0.21-1.0.27" apply false
-    id("androidx.room")                    version "2.7.0-alpha11" apply false
-    id("androidx.room3")                   version "3.0.1" apply false
+    id("com.google.devtools.ksp")           version "2.1.0-1.0.29" apply false
+    id("androidx.room")                    version "2.7.0" apply false
     id("com.google.gms.google-services")    version "4.4.2" apply false
 }
 
@@ -53,6 +51,13 @@ tasks.register("updateProjectMaster") {
 
 // Ensure every subproject's assemble task triggers the update
 subprojects {
+    configurations.all {
+        resolutionStrategy.eachDependency {
+            if (requested.group == "org.jetbrains.kotlin" && requested.name.startsWith("kotlin-stdlib")) {
+                useVersion("2.1.0")
+            }
+        }
+    }
     tasks.matching { it.name == "assemble" }.configureEach {
         dependsOn(":updateProjectMaster")
     }

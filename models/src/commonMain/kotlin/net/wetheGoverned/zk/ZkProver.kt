@@ -1,11 +1,18 @@
 package net.wetheGoverned.zk
 
+data class ZkProofResult(
+    val proof: List<String>,
+    val publicSignals: List<String>
+)
+
 interface ZkProver {
-    suspend fun generateProof(identitySecret: String, districtId: String): String
-    suspend fun verifyProof(proof: String, publicKey: String, districtId: String): Boolean
+    suspend fun generateProof(circuitName: String, inputs: Map<String, Any>): ZkProofResult
+    suspend fun verifyProof(proof: ZkProofResult, circuitName: String): Boolean
 }
 
 class NoOpZkProver : ZkProver {
-    override suspend fun generateProof(identitySecret: String, districtId: String): String = "noop_proof"
-    override suspend fun verifyProof(proof: String, publicKey: String, districtId: String): Boolean = true
+    override suspend fun generateProof(circuitName: String, inputs: Map<String, Any>): ZkProofResult {
+        return ZkProofResult(emptyList<String>(), emptyList<String>())
+    }
+    override suspend fun verifyProof(proof: ZkProofResult, circuitName: String): Boolean = true
 }

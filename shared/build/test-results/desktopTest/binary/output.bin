@@ -1,0 +1,4 @@
+.🌐 Starting Relay Discovery (NIP-65/66)...
+I📡 Global Nostr Sync Engine Active (Scaled with Parallel Processing).
+L📡 Sync Engine: Starting subscription for segments [us, us-fl, us-fl-06]
+e📡 Sync Engine: Subscribing with 3 filters to relay mesh (SubID: wtg_sync_us-fl-06_1786228109145)

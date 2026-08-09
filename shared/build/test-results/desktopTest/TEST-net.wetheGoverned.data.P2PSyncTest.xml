@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="net.wetheGoverned.data.P2PSyncTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-08-08T22:28:25.740Z" hostname="FUTURE" time="3.482">
+  <properties/>
+  <testcase name="testSyncLoop_mergesRemotePolls[desktop]" classname="net.wetheGoverned.data.P2PSyncTest" time="3.482"/>
+  <system-out><![CDATA[]]>&#x1f310;<![CDATA[ Starting Relay Discovery (NIP-65/66)...
+]]>&#x1f4e1;<![CDATA[ Global Nostr Sync Engine Active (Scaled with Parallel Processing).
+]]>&#x1f4e1;<![CDATA[ Sync Engine: Starting subscription for segments [us, us-fl, us-fl-06]
+]]>&#x1f4e1;<![CDATA[ Sync Engine: Subscribing with 3 filters to relay mesh (SubID: wtg_sync_us-fl-06_1786228109145)
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

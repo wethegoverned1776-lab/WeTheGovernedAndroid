@@ -151,18 +151,18 @@ private fun PostCard(post: CommunityPost) {
             
             if (post.location != null || post.contactInfo != null) {
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                if (post.location != null) {
+                post.location?.let {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.LocationOn, null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(text = post.location, style = MaterialTheme.typography.bodySmall)
+                        Text(text = it, style = MaterialTheme.typography.bodySmall)
                     }
                 }
-                if (post.contactInfo != null) {
+                post.contactInfo?.let {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Info, null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(text = post.contactInfo, style = MaterialTheme.typography.bodySmall)
+                        Text(text = it, style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }

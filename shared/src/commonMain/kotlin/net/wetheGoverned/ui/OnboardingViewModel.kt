@@ -1,5 +1,6 @@
 package net.wetheGoverned.ui
 
+import kotlinx.serialization.Serializable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.*
@@ -12,6 +13,7 @@ import net.wetheGoverned.remote.api.WtgBackendApi
 import net.wetheGoverned.session.SessionManager
 import net.wetheGoverned.LocationHelper
 
+@Serializable
 enum class OnboardingStep { WELCOME, KEY_SETUP, COMPLETE }
 
 data class OnboardingUiState(

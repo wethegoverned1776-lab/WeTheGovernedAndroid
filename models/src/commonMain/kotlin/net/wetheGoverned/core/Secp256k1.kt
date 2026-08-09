@@ -81,9 +81,11 @@ object Secp256k1 {
 expect fun CivicBigInt.divideByTwo(): CivicBigInt
 
 object Secp256k1KeyManager {
-    fun generateKeyPair(): Pair<String, String> {
+    data class KeyPair(val pubKeyHex: String, val privateKeyHex: String)
+
+    fun generateKeyPair(): KeyPair {
         // Simple placeholder for now, actual implementation depends on platform
-        return Pair("priv", "pub")
+        return KeyPair("pub", "priv")
     }
     
     fun deriveXOnlyPubKey(privKeyHex: String): String {

@@ -2,7 +2,7 @@
 
 **Project Name:** WeTheGoverned (WETHEGOVERNED)
 **Package Name:** net.wetheGoverned
-**Last Updated:** <!-- DATE_START -->2026-08-02<!-- DATE_END -->
+**Last Updated:** <!-- DATE_START -->2026-08-08<!-- DATE_END -->
 **Target SDK / Compile SDK:** 35
 **Min SDK:** 24
 **Architecture:** MVVM / Clean Architecture / Multiplatform (KMP)
@@ -123,9 +123,9 @@ WETHEGOVERNED/
 ## 9. Build & Configuration
 <!-- BUILD_CONFIG_START -->
 - **Gradle Version:** 8.13
-- **Kotlin Version:** 2.2.20
+- **Kotlin Version:** 2.0.21
 - **AGP Version:** 8.13.2
-- **Key Dependencies:** Ktor (Networking), Compose Multiplatform (1.7.1), kotlinx-serialization, kotlinx-datetime.
+- **Key Dependencies:** Ktor (Networking), Compose Multiplatform (1.7.0), kotlinx-serialization, kotlinx-datetime.
 - **Compatibility:** iOS targets (iosX64, iosArm64, iosSimulatorArm64) configured via CocoaPods.
 - **Platform Specifics:** JVM-only dependencies (Ktor Server, Web3j) isolated to `androidMain` and `desktopMain`.
 <!-- BUILD_CONFIG_END -->

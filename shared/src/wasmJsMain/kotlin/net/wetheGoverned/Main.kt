@@ -59,8 +59,10 @@ fun main() {
                     override suspend fun dequeue(eventId: String) {}
                 },
                 object : net.wetheGoverned.zk.ZkProver {
-                    override suspend fun generateProof(circuitName: String, inputs: Map<String, Any>): net.wetheGoverned.zk.ZkProofResult = 
-                        net.wetheGoverned.zk.ZkProofResult(emptyList(), emptyList())
+                    override suspend fun generateProof(circuitName: String, inputs: Map<String, Any>): net.wetheGoverned.zk.ZkProofResult {
+                        return net.wetheGoverned.zk.ZkProofResult(emptyList(), emptyList())
+                    }
+                    override suspend fun verifyProof(proof: net.wetheGoverned.zk.ZkProofResult, circuitName: String): Boolean = true
                 }
             )
         }

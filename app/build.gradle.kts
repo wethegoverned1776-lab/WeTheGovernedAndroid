@@ -93,11 +93,10 @@ dependencies {
     implementation("androidx.core:core-splashscreen:1.2.0")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     
-    // Database (Room)
-    val roomVersion = "3.0.1"
-    implementation("androidx.room3:room3-runtime:$roomVersion")
-    ksp("androidx.room3:room3-compiler:$roomVersion")
-    implementation("androidx.sqlite:sqlite-bundled:2.7.0")
+    // Database (Room 3 for KMP/Wasm support)
+    implementation("androidx.room3:room3-runtime:3.0.1")
+    ksp("androidx.room3:room3-compiler:3.0.1")
+    implementation("androidx.sqlite:sqlite-bundled:2.5.0")
 
     // Networking (Ktor Client & Server)
     val ktorVersion = "2.3.12"

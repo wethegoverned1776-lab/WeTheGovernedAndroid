@@ -1,8 +1,8 @@
 package net.wetheGoverned.di
 
 import android.content.Context
-import androidx.room3.Room
-import androidx.room3.RoomDatabase
+import androidx.room.Room
+import androidx.room.RoomDatabase
 import dagger.Binds
 import dagger.Module
 import dagger.Provides

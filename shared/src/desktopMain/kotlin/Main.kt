@@ -12,6 +12,7 @@ import io.ktor.client.engine.cio.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.http.*
+import androidx.room.RoomDatabase
 import net.wetheGoverned.App
 import net.wetheGoverned.data.*
 import net.wetheGoverned.data.local.*
@@ -65,15 +66,19 @@ fun main() {
                     override suspend fun dequeue(eventId: String) {}
                 },
                 object : net.wetheGoverned.zk.ZkProver {
-                    override suspend fun generateProof(circuitName: String, inputs: Map<String, Any>): net.wetheGoverned.zk.ZkProofResult = 
-                        net.wetheGoverned.zk.ZkProofResult(emptyList(), emptyList())
+                    override suspend fun generateProof(circuitName: String, inputs: Map<String, Any>): net.wetheGoverned.zk.ZkProofResult {
+                        return net.wetheGoverned.zk.ZkProofResult(emptyList(), emptyList())
+                    }
+                    override suspend fun verifyProof(proof: net.wetheGoverned.zk.ZkProofResult, circuitName: String): Boolean = true
                 }
             )
         }
 
         // Initialize Room Database
-        val databaseBuilder = remember { getDatabaseBuilder() }
-        val database = remember { getRoomDatabase(databaseBuilder) }
+        val databaseBuilder = remember { getDatabaseBuilder() as androidx.room.RoomDatabase.Builder<AppDatabase> }
+        val database = remember { getRoomDatabase(databaseBuilder as androidx.room.RoomDatabase.Builder<RoomAppDatabase>) }
+
+
 
         // Core Repositories (Room-based)
         val voteRepository: VoteRepository = remember { RoomVoteRepository(database) }

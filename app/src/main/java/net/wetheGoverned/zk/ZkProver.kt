@@ -50,6 +50,11 @@ class NativeZkProver @Inject constructor(
         )
     }
 
+    override suspend fun verifyProof(proof: ZkProofResult, circuitName: String): Boolean {
+        // Simple stub for now
+        return true
+    }
+
     private fun extractAssetToInternalStorage(fileName: String): String {
         val file = context.getFileStreamPath(fileName)
         if (!file.exists()) {

@@ -1,0 +1,249 @@
+package net.wetheGoverned.data.local.dao
+
+import androidx.room.*
+import kotlinx.coroutines.flow.Flow
+import net.wetheGoverned.data.local.entity.*
+import net.wetheGoverned.model.*
+
+@Dao
+interface DistrictDao {
+    @Query("SELECT * FROM districts WHERE id = :districtId")
+    fun observeDistrict(districtId: String): Flow<DistrictEntity?>
+
+    @Query("SELECT * FROM districts WHERE id = :districtId")
+    suspend fun getDistrict(districtId: String): DistrictEntity?
+
+    @Upsert
+    suspend fun upsertDistrict(district: DistrictEntity)
+}
+
+@Dao
+interface ResidentProfileDao {
+    @Query("SELECT * FROM resident_profiles WHERE pubKey = :pubKey")
+    fun observeProfile(pubKey: String): Flow<ResidentProfileEntity?>
+
+    @Query("SELECT * FROM resident_profiles WHERE addressFingerprint = :fingerprint")
+    fun observeProfilesByFingerprint(fingerprint: String): Flow<List<ResidentProfileEntity>>
+
+    @Query("SELECT COUNT(*) FROM resident_profiles WHERE addressFingerprint = :fingerprint")
+    suspend fun getProfileCountByFingerprint(fingerprint: String): Int
+
+    @Query("SELECT COUNT(*) FROM resident_profiles WHERE verifiedByPubKey = :notaryPubKey")
+    suspend fun getVouchCount(notaryPubKey: String): Int
+
+    @Query("SELECT * FROM resident_profiles")
+    suspend fun getAllProfiles(): List<ResidentProfileEntity>
+
+    @Query("SELECT * FROM resident_profiles WHERE pubKey = :pubKey")
+    suspend fun getProfile(pubKey: String): ResidentProfileEntity?
+
+    @Query("SELECT * FROM resident_profiles WHERE verifiedByPubKey = :verifierPubKey")
+    fun observeProfilesVerifiedBy(verifierPubKey: String): Flow<List<ResidentProfileEntity>>
+
+    @Upsert
+    suspend fun upsertProfile(profile: ResidentProfileEntity)
+
+    @Query("DELETE FROM resident_profiles WHERE cachedAt < :before AND pubKey != :adminPubKey")
+    suspend fun evictStaleProfiles(before: Long, adminPubKey: String)
+
+    @Query("UPDATE resident_profiles SET tier = :tier WHERE pubKey = :pubKey")
+    suspend fun updateTier(pubKey: String, tier: String)
+
+    @Query("UPDATE resident_profiles SET tier = :tier, addressFingerprint = :fingerprint WHERE pubKey = :pubKey")
+    suspend fun updateTierWithFingerprint(pubKey: String, tier: String, fingerprint: String)
+}
+
+@Dao
+interface PollDao {
+    @Query("SELECT * FROM district_polls WHERE districtId = :districtId ORDER BY importanceScore DESC, createdAt DESC")
+    fun observePolls(districtId: String): Flow<List<DistrictPollEntity>>
+
+    @Query("SELECT * FROM district_polls WHERE districtId = :districtId OR districtId = :stateId OR districtId = 'us' ORDER BY importanceScore DESC, createdAt DESC")
+    fun observePollsHierarchy(districtId: String, stateId: String): Flow<List<DistrictPollEntity>>
+
+    @Query("SELECT * FROM district_polls WHERE districtId IN (:districtIds) ORDER BY importanceScore DESC, createdAt DESC")
+    fun observePollsByIds(districtIds: List<String>): Flow<List<DistrictPollEntity>>
+
+    @Query("SELECT * FROM district_polls WHERE districtId = :districtId ORDER BY importanceScore DESC, createdAt DESC")
+    suspend fun getPollsSync(districtId: String): List<DistrictPollEntity>
+
+    @Query("SELECT * FROM district_polls ORDER BY importanceScore DESC, createdAt DESC")
+    suspend fun getAllPollsAcrossDistricts(): List<DistrictPollEntity>
+
+    @Query("SELECT * FROM district_polls WHERE id = :pollId")
+    suspend fun getPoll(pollId: String): DistrictPollEntity?
+
+    @Upsert
+    suspend fun upsertPoll(poll: DistrictPollEntity)
+
+    @Query("UPDATE district_polls SET residentVoteOption = :optionId, totalVotes = totalVotes + 1 WHERE id = :pollId")
+    suspend fun applyOptimisticVote(pollId: String, optionId: String)
+
+    @Query("DELETE FROM district_polls WHERE districtId = :districtId AND cachedAt < :before")
+    suspend fun evictStalePolls(districtId: String, before: Long)
+}
+
+@Dao
+interface PollPostDao {
+    @Query("SELECT * FROM poll_posts WHERE pollId = :pollId ORDER BY score DESC")
+    fun getAllPostsForPoll(pollId: String): Flow<List<PollPostEntity>>
+
+    @Query("SELECT * FROM poll_posts WHERE pollId = :pollId AND optionId = :optionId AND parentPostId IS NULL ORDER BY score DESC")
+    fun observeOptionPosts(pollId: String, optionId: String): Flow<List<PollPostEntity>>
+
+    @Query("SELECT * FROM poll_posts WHERE parentPostId = :parentPostId ORDER BY score DESC")
+    fun observeThreadedPosts(parentPostId: String): Flow<List<PollPostEntity>>
+
+    @Query("SELECT * FROM poll_posts WHERE id = :postId")
+    suspend fun getPost(postId: String): PollPostEntity?
+
+    @Upsert
+    suspend fun upsertPost(post: PollPostEntity)
+
+    @Query("UPDATE poll_posts SET score = score + :delta, userVote = :userVote WHERE id = :postId")
+    suspend fun updateVote(postId: String, delta: Int, userVote: Int)
+
+    @Query("SELECT * FROM poll_posts")
+    suspend fun getAllPosts(): List<PollPostEntity>
+}
+
+@Dao
+interface ScorecardDao {
+    @Query("SELECT * FROM representative_scorecards WHERE districtId = :districtId")
+    fun observeScorecard(districtId: String): Flow<RepresentativeScorecardEntity?>
+
+    @Query("SELECT * FROM representative_scorecards WHERE districtId = :districtId")
+    suspend fun getScorecard(districtId: String): RepresentativeScorecardEntity?
+
+    @Upsert
+    suspend fun upsertScorecard(scorecard: RepresentativeScorecardEntity)
+
+    @Query("SELECT * FROM scorecard_categories WHERE districtId = :districtId")
+    suspend fun getCategoriesForDistrict(districtId: String): List<ScorecardCategoryEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertCategories(categories: List<ScorecardCategoryEntity>)
+
+    @Query("DELETE FROM scorecard_categories WHERE districtId = :districtId")
+    suspend fun deleteCategoriesForDistrict(districtId: String)
+}
+
+@Dao
+interface ManifestoDao {
+    @Query("SELECT * FROM candidate_manifestos WHERE districtId = :districtId ORDER BY publishedAt DESC")
+    fun observeManifestos(districtId: String): Flow<List<CandidateManifestoEntity>>
+
+    @Query("SELECT * FROM candidate_manifestos WHERE id = :manifestoId")
+    suspend fun getManifesto(manifestoId: String): CandidateManifestoEntity?
+
+    @Upsert
+    suspend fun upsertManifesto(manifesto: CandidateManifestoEntity)
+
+    @Query("SELECT * FROM manifesto_questions WHERE manifestoId = :manifestoId ORDER BY askedAt ASC")
+    suspend fun getQuestions(manifestoId: String): List<ManifestoQuestionEntity>
+
+    @Upsert
+    suspend fun upsertQuestion(question: ManifestoQuestionEntity)
+}
+
+@Dao
+interface MetricDao {
+    @Query("SELECT * FROM district_metrics WHERE districtId = :districtId ORDER BY reportedAt DESC")
+    fun observeMetrics(districtId: String): Flow<List<DistrictMetricEntity>>
+
+    @Upsert
+    suspend fun upsertMetric(metric: DistrictMetricEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertMetrics(metrics: List<DistrictMetricEntity>)
+
+    @Query("DELETE FROM district_metrics WHERE districtId = :districtId AND cachedAt < :before")
+    suspend fun evictStaleMetrics(districtId: String, before: Long)
+}
+
+@Dao
+interface PendingEventDao {
+    @Query("SELECT * FROM pending_civic_events ORDER BY createdAt ASC")
+    suspend fun getAllPending(): List<PendingCivicEventEntity>
+
+    @Upsert
+    suspend fun enqueue(event: PendingCivicEventEntity)
+
+    @Query("DELETE FROM pending_civic_events WHERE eventId = :eventId")
+    suspend fun dequeue(eventId: String)
+}
+
+@Dao
+interface CommunityPostDao {
+    @Query("SELECT * FROM community_posts WHERE districtId = :districtId ORDER BY createdAt DESC")
+    fun observePosts(districtId: String): Flow<List<CommunityPostEntity>>
+
+    @Query("SELECT * FROM community_posts WHERE districtId = :districtId AND kind = :kind ORDER BY createdAt DESC")
+    fun observePostsByKind(districtId: String, kind: CommunityPostKind): Flow<List<CommunityPostEntity>>
+
+    @Query("SELECT * FROM community_posts WHERE id = :postId")
+    suspend fun getPost(postId: String): CommunityPostEntity?
+
+    @Upsert
+    suspend fun upsertPost(post: CommunityPostEntity)
+
+    @Query("DELETE FROM community_posts WHERE id = :postId")
+    suspend fun deletePost(postId: String)
+
+    @Query("SELECT * FROM community_posts")
+    suspend fun getAllPosts(): List<CommunityPostEntity>
+}
+
+@Dao
+interface VerificationRequestDao {
+    @Query("SELECT * FROM verification_requests WHERE districtId = :districtId ORDER BY createdAt DESC")
+    fun observeRequestsForDistrict(districtId: String): Flow<List<VerificationRequestEntity>>
+
+    @Query("SELECT * FROM verification_requests WHERE stateId = :stateId ORDER BY createdAt DESC")
+    fun observeRequestsForState(stateId: String): Flow<List<VerificationRequestEntity>>
+
+    @Query("SELECT * FROM verification_requests WHERE id = :id")
+    suspend fun getRequest(id: String): VerificationRequestEntity?
+
+    @Upsert
+    suspend fun upsertRequest(request: VerificationRequestEntity)
+
+    @Query("UPDATE verification_requests SET status = :status, handledByPubKey = :handledBy WHERE id = :id")
+    suspend fun updateStatus(id: String, status: VerificationRequestStatus, handledBy: String)
+}
+
+@Dao
+interface VoteDao {
+    @Query("SELECT * FROM poll_votes ORDER BY timestamp DESC")
+    fun observeAllVotes(): Flow<List<CivicVoteEntity>>
+
+    @Query("SELECT * FROM poll_votes WHERE voterPubKey = :pubKey ORDER BY timestamp DESC")
+    fun observeVotesByUser(pubKey: String): Flow<List<CivicVoteEntity>>
+
+    @Query("SELECT * FROM poll_votes WHERE id = :voteId")
+    suspend fun getVoteById(voteId: String): CivicVoteEntity?
+
+    @Upsert
+    suspend fun upsertVote(vote: CivicVoteEntity)
+
+    @Query("UPDATE poll_votes SET isFlagged = 1, status = 'FLAGGED', disputeExpiresAt = :expiresAt WHERE id = :voteId")
+    suspend fun flagVote(voteId: String, expiresAt: Long)
+
+    @Query("UPDATE poll_votes SET disputeComment = :comment, status = 'DISPUTED' WHERE id = :voteId")
+    suspend fun disputeVote(voteId: String, comment: String)
+
+    @Query("UPDATE poll_votes SET status = 'RESOLVED', isFlagged = 0 WHERE id = :voteId")
+    suspend fun resolveVote(voteId: String)
+}
+
+@Dao
+interface AccountDao {
+    @Query("SELECT * FROM user_accounts WHERE username = :username LIMIT 1")
+    suspend fun getAccount(username: String): AccountEntity?
+
+    @Upsert
+    suspend fun upsertAccount(account: AccountEntity)
+
+    @Query("SELECT COUNT(*) FROM user_accounts")
+    suspend fun getAccountCount(): Int
+}

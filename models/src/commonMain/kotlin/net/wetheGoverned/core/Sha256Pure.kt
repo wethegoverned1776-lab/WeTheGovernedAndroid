@@ -1,74 +1,95 @@
 package net.wetheGoverned.core
 
 /**
- * A pure Kotlin implementation of SHA-256.
+ * A pure Kotlin implementation of SHA-256, refactored to bypass K2 Wasm compiler bugs.
+ * Based on the standard SHA-256 algorithm (FIPS 180-4).
  */
 fun sha256Pure(input: ByteArray): ByteArray {
-    val h = intArrayOf(
-        0x6a09e667, -0x4498517b, 0x3c6ef372, -0x5ab00ac5,
-        0x510e527f, -0x64fa9773, 0x1f83d9ab, 0x5be0cd19
-    )
+    val h0 = 0x6a09e667.toInt()
+    val h1 = 0xbb67ae85.toInt()
+    val h2 = 0x3c6ef372.toInt()
+    val h3 = 0xa54ff53a.toInt()
+    val h4 = 0x510e527f.toInt()
+    val h5 = 0x9b05688c.toInt()
+    val h6 = 0x1f83d9ab.toInt()
+    val h7 = 0x5be0cd19.toInt()
 
     val k = intArrayOf(
-        0x428a2f98, 0x71374491, -0x4a3f049, -0x164a245b, 0x3956c25b, 0x59f111f1, -0x6dc07d5c, -0x54e3a12b,
-        -0x27f85568, 0x122aa88e, 0x34b8c450, 0x43815349, 0x4c66220a, 0x5be0cd19, 0x6c44198c, 0x7bc65dee,
-        -0x7b578127, -0x716f1b0b, -0x664684a3, -0x5b38dcdb, -0x518a00bc, -0x427bed93, -0x283d44d6, -0x1df1ad61,
-        -0x14f04c0b, -0x6fa5a44, 0x4ea6c11, 0x8686a7e, 0x0d175228, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa,
-        0x5cb0a9dc, 0x76f988da, -0x67c1aeae, -0x57ce3993, -0x4ffcd834, -0x40a68039, -0x391ff40d, -0x2a586d09,
-        0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb,
-        -0x79f029e9, -0x704f0ff3, -0x64fa9773, -0x5a005c24, -0x4ef2ac4e, -0x406c803a, -0x384f5f52, -0x2c054ed3,
-        -0x23307524, 0x243185be, 0x550c7dc3, 0x72be5d74, -0x7f216a6d, -0x71c6fe61, -0x59c36f0d, -0x454d840f
+        0x428a2f98.toInt(), 0x71374491.toInt(), 0xb5c0fbcf.toInt(), 0xe9b5dba5.toInt(),
+        0x3956c25b.toInt(), 0x59f111f1.toInt(), 0x923f82a4.toInt(), 0xab1c5ed5.toInt(),
+        0xd807aa98.toInt(), 0x12835b01.toInt(), 0x243185be.toInt(), 0x550c7dc3.toInt(),
+        0x72be5d74.toInt(), 0x80deb1fe.toInt(), 0x9bdc06a7.toInt(), 0xc19bf174.toInt(),
+        0xe49b69c1.toInt(), 0xefbe4786.toInt(), 0x0fc19dc6.toInt(), 0x240ca1cc.toInt(),
+        0x2de92c6f.toInt(), 0x4a7484aa.toInt(), 0x5cb0a9dc.toInt(), 0x76f988da.toInt(),
+        0x983e5152.toInt(), 0xa831c66d.toInt(), 0xb00327c8.toInt(), 0xbf597fc7.toInt(),
+        0xc6e00bf3.toInt(), 0xd5a79147.toInt(), 0x06ca6351.toInt(), 0x14292967.toInt(),
+        0x27b70a85.toInt(), 0x2e1b2138.toInt(), 0x4d2c6dfc.toInt(), 0x53380d13.toInt(),
+        0x650a7354.toInt(), 0x766a0abb.toInt(), 0x81c2c92e.toInt(), 0x92722c85.toInt(),
+        0xa2bfe8a1.toInt(), 0xa81a664b.toInt(), 0xc24b8b70.toInt(), 0xc76c51a3.toInt(),
+        0xd192e819.toInt(), 0xd6990624.toInt(), 0xf40e3585.toInt(), 0x106aa070.toInt(),
+        0x19a4c116.toInt(), 0x1e376c08.toInt(), 0x2748774c.toInt(), 0x34b0bcb5.toInt(),
+        0x391c0cb3.toInt(), 0x4ed8aa4a.toInt(), 0x5b9cca4f.toInt(), 0x682e6ff3.toInt(),
+        0x748f82ee.toInt(), 0x78a5636f.toInt(), 0x84c87814.toInt(), 0x8cc70208.toInt(),
+        0x90befffa.toInt(), 0xa4506ceb.toInt(), 0xbef9a3f7.toInt(), 0xc67178f2.toInt()
     )
 
     val messageLen = input.size
     val bitLen = messageLen.toLong() * 8
-    val padLen = if (messageLen % 64 < 56) 56 - messageLen % 64 else 120 - messageLen % 64
+    val padLen = if (messageLen % 64 < 56) 56 - (messageLen % 64) else 120 - (messageLen % 64)
     val totalLen = messageLen + padLen + 8
     val padded = ByteArray(totalLen)
     input.copyInto(padded)
     padded[messageLen] = 0x80.toByte()
-    for (i in 0..7) padded[totalLen - 1 - i] = (bitLen ushr (i * 8)).toByte()
+
+    for (i in 0 until 8) {
+        padded[totalLen - 1 - i] = (bitLen shr (i * 8)).toByte()
+    }
+
+    var h0v = h0
+    var h1v = h1
+    var h2v = h2
+    var h3v = h3
+    var h4v = h4
+    var h5v = h5
+    var h6v = h6
+    var h7v = h7
 
     val w = IntArray(64)
-    for (v in 0 until totalLen step 64) {
-        for (i in 0..15) {
-            w[i] = (padded[v + i * 4].toInt() and 0xff shl 24) or
-                    (padded[v + i * 4 + 1].toInt() and 0xff shl 16) or
-                    (padded[v + i * 4 + 2].toInt() and 0xff shl 8) or
-                    (padded[v + i * 4 + 3].toInt() and 0xff)
+    for (i in 0 until totalLen step 64) {
+        for (t in 0 until 16) {
+            w[t] = ((padded[i + t * 4].toInt() and 0xff) shl 24) or
+                   ((padded[i + t * 4 + 1].toInt() and 0xff) shl 16) or
+                   ((padded[i + t * 4 + 2].toInt() and 0xff) shl 8) or
+                   (padded[i + t * 4 + 3].toInt() and 0xff)
         }
-        for (i in 16..63) {
-            val s0 = (w[i - 15] ushr 7 or (w[i - 15] shl 25)) xor
-                    (w[i - 15] ushr 18 or (w[i - 15] shl 14)) xor
-                    (w[i - 15] ushr 3)
-            val s1 = (w[i - 2] ushr 17 or (w[i - 2] shl 15)) xor
-                    (w[i - 2] ushr 19 or (w[i - 2] shl 13)) xor
-                    (w[i - 2] ushr 10)
-            w[i] = w[i - 16] + s0 + w[i - 7] + s1
+        for (t in 16 until 64) {
+            val s0 = (w[t - 15] ushr 7 or (w[t - 15] shl 25)) xor
+                     (w[t - 15] ushr 18 or (w[t - 15] shl 14)) xor
+                     (w[t - 15] ushr 3)
+            val s1 = (w[t - 2] ushr 17 or (w[t - 2] shl 15)) xor
+                     (w[t - 2] ushr 19 or (w[t - 2] shl 13)) xor
+                     (w[t - 2] ushr 10)
+            w[t] = w[t - 16] + s0 + w[t - 7] + s1
         }
 
-        var a = h[0]
-        var b = h[1]
-        var c = h[2]
-        var d = h[3]
-        var e = h[4]
-        var f = h[5]
-        var g = h[6]
-        var l = h[7]
+        var a = h0v
+        var b = h1v
+        var c = h2v
+        var d = h3v
+        var e = h4v
+        var f = h5v
+        var g = h6v
+        var h = h7v
 
-        for (i in 0..63) {
-            val s1 = (e ushr 6 or (e shl 26)) xor
-                    (e ushr 11 or (e shl 21)) xor
-                    (e ushr 25 or (e shl 7))
+        for (t in 0 until 64) {
+            val s1 = (e ushr 6 or (e shl 26)) xor (e ushr 11 or (e shl 21)) xor (e ushr 25 or (e shl 7))
             val ch = (e and f) xor (e.inv() and g)
-            val temp1 = l + s1 + ch + k[i] + w[i]
-            val s0 = (a ushr 2 or (a shl 30)) xor
-                    (a ushr 13 or (a shl 19)) xor
-                    (a ushr 22 or (a shl 10))
+            val temp1 = h + s1 + ch + k[t] + w[t]
+            val s0 = (a ushr 2 or (a shl 30)) xor (a ushr 13 or (a shl 19)) xor (a ushr 22 or (a shl 10))
             val maj = (a and b) xor (a and c) xor (b and c)
             val temp2 = s0 + maj
 
-            l = g
+            h = g
             g = f
             f = e
             e = d + temp1
@@ -78,22 +99,30 @@ fun sha256Pure(input: ByteArray): ByteArray {
             a = temp1 + temp2
         }
 
-        h[0] += a
-        h[1] += b
-        h[2] += c
-        h[3] += d
-        h[4] += e
-        h[5] += f
-        h[6] += g
-        h[7] += l
+        h0v += a
+        h1v += b
+        h2v += c
+        h3v += d
+        h4v += e
+        h5v += f
+        h6v += g
+        h7v += h
     }
 
-    val result = ByteArray(32)
-    for (i in 0..7) {
-        result[i * 4] = (h[i] ushr 24).toByte()
-        result[i * 4 + 1] = (h[i] ushr 16).toByte()
-        result[i * 4 + 2] = (h[i] ushr 8).toByte()
-        result[i * 4 + 3] = h[i].toByte()
+    val res = ByteArray(32)
+    fun writeInt(arr: ByteArray, offset: Int, v: Int) {
+        arr[offset] = (v shr 24).toByte()
+        arr[offset + 1] = (v shr 16).toByte()
+        arr[offset + 2] = (v shr 8).toByte()
+        arr[offset + 3] = v.toByte()
     }
-    return result
+    writeInt(res, 0, h0v)
+    writeInt(res, 4, h1v)
+    writeInt(res, 8, h2v)
+    writeInt(res, 12, h3v)
+    writeInt(res, 16, h4v)
+    writeInt(res, 20, h5v)
+    writeInt(res, 24, h6v)
+    writeInt(res, 28, h7v)
+    return res
 }

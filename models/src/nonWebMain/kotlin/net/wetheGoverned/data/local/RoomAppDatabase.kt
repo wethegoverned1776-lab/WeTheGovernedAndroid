@@ -27,20 +27,22 @@ import net.wetheGoverned.data.local.entity.*
 )
 @TypeConverters(CivicConverters::class)
 @ConstructedBy(AppDatabaseConstructor::class)
-abstract class RoomAppDatabase : RoomDatabase(), AppDatabase {
-    abstract override fun districtDao(): DistrictDao
-    abstract override fun residentProfileDao(): ResidentProfileDao
-    abstract override fun pollDao(): PollDao
-    abstract override fun pollPostDao(): PollPostDao
-    abstract override fun voteDao(): VoteDao
-    abstract override fun scorecardDao(): ScorecardDao
-    abstract override fun manifestoDao(): ManifestoDao
-    abstract override fun metricDao(): MetricDao
-    abstract override fun pendingEventDao(): PendingEventDao
-    abstract override fun accountDao(): AccountDao
-    abstract override fun communityPostDao(): CommunityPostDao
-    abstract override fun verificationRequestDao(): VerificationRequestDao
+abstract class RoomAppDatabase : RoomDatabase() {
+    abstract fun districtDao(): DistrictDao
+    abstract fun residentProfileDao(): ResidentProfileDao
+    abstract fun pollDao(): PollDao
+    abstract fun pollPostDao(): PollPostDao
+    abstract fun voteDao(): VoteDao
+    abstract fun scorecardDao(): ScorecardDao
+    abstract fun manifestoDao(): ManifestoDao
+    abstract fun metricDao(): MetricDao
+    abstract fun pendingEventDao(): PendingEventDao
+    abstract fun accountDao(): AccountDao
+    abstract fun communityPostDao(): CommunityPostDao
+    abstract fun verificationRequestDao(): VerificationRequestDao
 }
+
+actual typealias AppDatabase = RoomAppDatabase
 
 // The Room compiler generates the `actual` implementations.
 @Suppress("KotlinNoActualForExpect")
@@ -54,3 +56,4 @@ fun getRoomDatabase(
         .setQueryCoroutineContext(Dispatchers.Default)
         .build()
 }
+

@@ -43,7 +43,7 @@ class P2PSyncTest {
         // Mock Relay Manager
         val relayManager = NostrRelayManager(emptyList())
         val publisher = object : CivicPublisher {
-            override suspend fun signPublishImportCivicEvent(kind: Int, tags: List<List<String>>, content: String, pubKey: String) {}
+            override suspend fun signPublishImportCivicEvent(kind: Int, tags: List<List<String>>, content: String, pubKey: String): String? = null
         }
 
         val syncEngine = P2PSyncEngine(
@@ -90,9 +90,9 @@ class InMemoryPollRepository : PollRepository {
     override fun observePollPosts(pollId: String) = flowOf(emptyList<PollPost>())
     override fun observeOptionPosts(pollId: String, optionId: String) = flowOf(emptyList<PollPost>())
     override fun observeThreadedPosts(parentPostId: String) = flowOf(emptyList<PollPost>())
-    override suspend fun createPost(pollId: String, optionId: String, authorName: String, content: String, headline: String?, parentPostId: String?) = Result.success(PollPost(pollId = "", optionId = "", authorName = "", content = ""))
+    override suspend fun createPost(pollId: String, optionId: String, authorName: String, content: String, headline: String?, parentPostId: String?) = Result.success(PollPost(id = "test", pollId = "", optionId = "", authorName = "", content = ""))
     override suspend fun voteOnPost(postId: String, delta: Int) = Result.success(Unit)
-    override suspend fun getPost(postId: String) = Result.success(PollPost(pollId = "", optionId = "", authorName = "System", content = ""))
+    override suspend fun getPost(postId: String) = Result.success(PollPost(id = "test", pollId = "", optionId = "", authorName = "System", content = ""))
     override suspend fun getAllPolls() = polls
     override suspend fun getPollsForJurisdictions(jurisdictionIds: List<String>, since: Long) = polls.filter { it.districtId in jurisdictionIds }
     override suspend fun syncPoll(poll: CivicPoll) { polls.add(poll) }

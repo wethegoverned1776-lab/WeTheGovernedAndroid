@@ -48,7 +48,7 @@ class NostrSigningTest {
         val auxRand = "0000000000000000000000000000000000000000000000000000000000000000"
         val expectedSig = "E907831F80848D1069A5371B402410364BDF1C5F8307B0084C55F1CE2DCA821525F66A4A85EA8B71E482A74F382D2CE5EBEEE8FDB2172F477DF4900D310536C0"
 
-        val sig = NostrSigner.sign(msg, seckey, auxRand)
+        val sig = Secp256k1KeyManager.sign(msg, seckey, auxRand)
         println("Generated Sig: ${sig.lowercase()}")
         println("Expected Sig:  ${expectedSig.lowercase()}")
         assertEquals(expectedSig.lowercase(), sig.lowercase())

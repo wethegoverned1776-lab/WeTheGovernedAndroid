@@ -9,6 +9,4 @@ abstract class RoomDatabase {
     }
 }
 
-interface RoomDatabaseConstructor<T> {
-    fun initialize(): T
-}
+interface RoomDatabaseConstructor<T>

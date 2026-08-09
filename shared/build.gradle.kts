@@ -6,8 +6,6 @@ plugins {
     id("org.jetbrains.compose")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
-    id("com.google.devtools.ksp")
-    id("androidx.room3")
     kotlin("native.cocoapods")
 }
 
@@ -18,7 +16,6 @@ kotlin {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
         }
     }
-    
     jvm("desktop")
 
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
@@ -53,6 +50,7 @@ kotlin {
         
         val commonMain by getting {
             dependencies {
+                api(project(":models"))
                 implementation(compose.runtime)
                 implementation(compose.foundation)
                 implementation(compose.material3)
@@ -60,25 +58,12 @@ kotlin {
                 implementation(compose.components.resources)
                 implementation(compose.components.uiToolingPreview)
                 
-                // Room 3.0 KMP
-                implementation("androidx.room3:room3-runtime:3.0.1")
-                implementation("androidx.sqlite:sqlite:2.7.0")
-                
                 // Jetpack Multiplatform Navigation
                 implementation("org.jetbrains.androidx.navigation:navigation-compose:$navigationVersion")
                 
                 // Jetpack Multiplatform Lifecycle
                 api("org.jetbrains.androidx.lifecycle:lifecycle-viewmodel:$lifecycleVersion")
                 api("org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose:$lifecycleVersion")
-
-                implementation("io.ktor:ktor-client-core:$ktorVersion")
-                implementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
-                implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
-                
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
-                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.0")
-                implementation("javax.inject:javax.inject:1")
             }
         }
 
@@ -91,7 +76,7 @@ kotlin {
         
         val androidMain by getting {
             dependencies {
-                implementation("androidx.sqlite:sqlite-bundled:2.7.0")
+                implementation("androidx.sqlite:sqlite-bundled:2.5.0")
                 api("androidx.appcompat:appcompat:1.7.0")
                 api("androidx.activity:activity-compose:1.9.0")
                 implementation("io.ktor:ktor-client-okhttp:$ktorVersion")
@@ -124,7 +109,8 @@ kotlin {
         
         val desktopMain by getting {
             dependencies {
-                implementation("androidx.sqlite:sqlite-bundled:2.7.0")
+                implementation("androidx.room:room-runtime:2.7.0-alpha11")
+                implementation("androidx.sqlite:sqlite-bundled:2.5.0")
                 implementation(compose.desktop.currentOs)
                 implementation("org.jetbrains.skiko:skiko-awt-runtime-windows-x64:0.8.15")
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.8.1")
@@ -160,25 +146,9 @@ kotlin {
                 // Wasm specific Ktor
                 implementation("io.ktor:ktor-client-js:$ktorVersion")
                 implementation("io.ktor:ktor-client-websockets:$ktorVersion")
-                
-                // Room Wasm/JS disabled temporarily due to compiler crash
-                // implementation("androidx.room3:room3-runtime:3.0.1")
-                // implementation("androidx.sqlite:sqlite-web:2.7.0")
             }
         }
     }
-}
-
-room3 {
-    schemaDirectory("$projectDir/schemas")
-}
-
-dependencies {
-    val roomCompiler = "androidx.room3:room3-compiler:3.0.1"
-    add("kspCommonMainMetadata", roomCompiler)
-    add("kspAndroid", roomCompiler)
-    add("kspDesktop", roomCompiler)
-    // Removed kspWasmJs to bypass compiler crash. Web uses LocalStorage-based repositories for now.
 }
 
 android {
