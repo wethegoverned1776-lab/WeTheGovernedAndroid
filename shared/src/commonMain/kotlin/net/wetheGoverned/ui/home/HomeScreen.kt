@@ -159,10 +159,20 @@ fun HomeContent(
             )
         },
         floatingActionButton = {
+            // Allow poll creation for anyone NOT in observer mode (Verified users)
+            // or if we want to allow it for testing on Web. 
+            // Current logic: Hide if ReadOnly OR Observer.
             if (!isReadOnly && !isObserver) {
                 FloatingActionButton(onClick = onCreatePoll) {
                     Icon(Icons.Default.Add, contentDescription = "Create Poll")
                 }
+            } else if (isObserver) {
+                // [TEMPORARY FOR TESTING/WEB] Allow observers to see the button but maybe prompt for verification later
+                ExtendedFloatingActionButton(
+                    onClick = onCreatePoll,
+                    icon = { Icon(Icons.Default.Add, null) },
+                    text = { Text("Create Poll") }
+                )
             }
         }
     ) { padding ->
