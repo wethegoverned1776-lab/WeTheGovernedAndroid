@@ -6,10 +6,11 @@ import platform.Foundation.NSDocumentDirectory
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSUserDomainMask
 
-actual fun getDatabaseBuilder(): RoomDatabase.Builder<AppDatabase> {
-    val dbFilePath = documentDirectory() + "/wetheGoverned.db"
-    return Room.databaseBuilder<AppDatabase>(
+actual fun getDatabaseBuilder(): Any {
+    val dbFilePath = documentDirectory() + "/wethegoverned_mesh.db"
+    return Room.databaseBuilder<RoomAppDatabase>(
         name = dbFilePath,
+        factory = { AppDatabaseConstructor.construct() }
     )
 }
 
@@ -21,5 +22,5 @@ private fun documentDirectory(): String {
         create = false,
         error = null,
     )
-    return requireNotNull(documentDirectory?.path)
+    return documentDirectory?.path ?: ""
 }

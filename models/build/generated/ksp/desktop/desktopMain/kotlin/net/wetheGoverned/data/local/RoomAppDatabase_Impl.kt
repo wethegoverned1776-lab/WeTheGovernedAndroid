@@ -112,14 +112,14 @@ public class RoomAppDatabase_Impl : RoomAppDatabase() {
 
 
   protected override fun createOpenDelegate(): RoomOpenDelegate {
-    val _openDelegate: RoomOpenDelegate = object : RoomOpenDelegate(11,
+    val _openDelegate: RoomOpenDelegate = object : RoomOpenDelegate(8,
         "b8888c7ffc78fc716d0937918250083e", "159b26e1ffe25ac0f1af76a8b6c4bf37") {
       public override fun createAllTables(connection: SQLiteConnection) {
         connection.execSQL("CREATE TABLE IF NOT EXISTS `districts` (`id` TEXT NOT NULL, `level` TEXT NOT NULL, `state` TEXT NOT NULL, `districtNumber` INTEGER, `displayName` TEXT NOT NULL, `representativeName` TEXT, `representativeParty` TEXT, `geoBoundaries` TEXT, `cachedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))")
         connection.execSQL("CREATE TABLE IF NOT EXISTS `resident_profiles` (`pubKey` TEXT NOT NULL, `displayName` TEXT NOT NULL, `federalHouseId` TEXT, `federalSenateId` TEXT, `stateSenateId` TEXT, `stateHouseId` TEXT, `countyId` TEXT, `cityId` TEXT, `schoolBoardId` TEXT, `tier` TEXT NOT NULL, `avatarUrl` TEXT, `joinedAt` INTEGER NOT NULL, `addressFingerprint` TEXT, `verifiedByPubKey` TEXT, `address` TEXT, `cachedAt` INTEGER NOT NULL, PRIMARY KEY(`pubKey`))")
         connection.execSQL("CREATE TABLE IF NOT EXISTS `district_polls` (`id` TEXT NOT NULL, `scope` TEXT, `districtId` TEXT NOT NULL, `localId` TEXT, `authorPubKey` TEXT NOT NULL, `question` TEXT NOT NULL, `optionsJson` TEXT NOT NULL, `status` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `closesAt` INTEGER, `totalVotes` INTEGER NOT NULL, `importanceScore` INTEGER NOT NULL, `userImportanceVote` INTEGER NOT NULL, `residentVoteOption` TEXT, `linkedLegislationId` TEXT, `districtBreakdownJson` TEXT, `cachedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))")
-        connection.execSQL("CREATE TABLE IF NOT EXISTS `poll_posts` (`id` TEXT NOT NULL, `pollId` TEXT NOT NULL, `optionId` TEXT NOT NULL, `parentPostId` TEXT, `headline` TEXT, `authorName` TEXT NOT NULL, `content` TEXT NOT NULL, `score` INTEGER NOT NULL, `userVote` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))")
         connection.execSQL("CREATE TABLE IF NOT EXISTS `poll_votes` (`id` TEXT NOT NULL, `pollId` TEXT NOT NULL, `voterPubKey` TEXT NOT NULL, `voterName` TEXT NOT NULL, `optionId` TEXT NOT NULL, `timestamp` INTEGER NOT NULL, `nonce` INTEGER NOT NULL, `signature` TEXT, `isFlagged` INTEGER NOT NULL, `flagReason` TEXT, `disputeComment` TEXT, `disputeExpiresAt` INTEGER, `status` TEXT NOT NULL, PRIMARY KEY(`id`))")
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `poll_posts` (`id` TEXT NOT NULL, `pollId` TEXT NOT NULL, `optionId` TEXT NOT NULL, `parentPostId` TEXT, `headline` TEXT, `authorName` TEXT NOT NULL, `content` TEXT NOT NULL, `score` INTEGER NOT NULL, `userVote` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))")
         connection.execSQL("CREATE TABLE IF NOT EXISTS `representative_scorecards` (`districtId` TEXT NOT NULL, `representativePubKey` TEXT NOT NULL, `name` TEXT NOT NULL, `party` TEXT NOT NULL, `overallScore` INTEGER NOT NULL, `lastUpdated` INTEGER NOT NULL, `cachedAt` INTEGER NOT NULL, PRIMARY KEY(`districtId`))")
         connection.execSQL("CREATE TABLE IF NOT EXISTS `scorecard_categories` (`rowId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `districtId` TEXT NOT NULL, `categoryName` TEXT NOT NULL, `officialValue` TEXT NOT NULL, `residentReportedValue` TEXT, `score` INTEGER NOT NULL)")
         connection.execSQL("CREATE TABLE IF NOT EXISTS `candidate_manifestos` (`id` TEXT NOT NULL, `candidatePubKey` TEXT NOT NULL, `districtId` TEXT NOT NULL, `scope` TEXT NOT NULL, `title` TEXT NOT NULL, `body` TEXT NOT NULL, `publishedAt` INTEGER NOT NULL, `cachedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))")
@@ -137,8 +137,8 @@ public class RoomAppDatabase_Impl : RoomAppDatabase() {
         connection.execSQL("DROP TABLE IF EXISTS `districts`")
         connection.execSQL("DROP TABLE IF EXISTS `resident_profiles`")
         connection.execSQL("DROP TABLE IF EXISTS `district_polls`")
-        connection.execSQL("DROP TABLE IF EXISTS `poll_posts`")
         connection.execSQL("DROP TABLE IF EXISTS `poll_votes`")
+        connection.execSQL("DROP TABLE IF EXISTS `poll_posts`")
         connection.execSQL("DROP TABLE IF EXISTS `representative_scorecards`")
         connection.execSQL("DROP TABLE IF EXISTS `scorecard_categories`")
         connection.execSQL("DROP TABLE IF EXISTS `candidate_manifestos`")
@@ -295,41 +295,6 @@ public class RoomAppDatabase_Impl : RoomAppDatabase() {
               | Found:
               |""".trimMargin() + _existingDistrictPolls)
         }
-        val _columnsPollPosts: MutableMap<String, TableInfo.Column> = mutableMapOf()
-        _columnsPollPosts.put("id", TableInfo.Column("id", "TEXT", true, 1, null,
-            TableInfo.CREATED_FROM_ENTITY))
-        _columnsPollPosts.put("pollId", TableInfo.Column("pollId", "TEXT", true, 0, null,
-            TableInfo.CREATED_FROM_ENTITY))
-        _columnsPollPosts.put("optionId", TableInfo.Column("optionId", "TEXT", true, 0, null,
-            TableInfo.CREATED_FROM_ENTITY))
-        _columnsPollPosts.put("parentPostId", TableInfo.Column("parentPostId", "TEXT", false, 0,
-            null, TableInfo.CREATED_FROM_ENTITY))
-        _columnsPollPosts.put("headline", TableInfo.Column("headline", "TEXT", false, 0, null,
-            TableInfo.CREATED_FROM_ENTITY))
-        _columnsPollPosts.put("authorName", TableInfo.Column("authorName", "TEXT", true, 0, null,
-            TableInfo.CREATED_FROM_ENTITY))
-        _columnsPollPosts.put("content", TableInfo.Column("content", "TEXT", true, 0, null,
-            TableInfo.CREATED_FROM_ENTITY))
-        _columnsPollPosts.put("score", TableInfo.Column("score", "INTEGER", true, 0, null,
-            TableInfo.CREATED_FROM_ENTITY))
-        _columnsPollPosts.put("userVote", TableInfo.Column("userVote", "INTEGER", true, 0, null,
-            TableInfo.CREATED_FROM_ENTITY))
-        _columnsPollPosts.put("createdAt", TableInfo.Column("createdAt", "INTEGER", true, 0, null,
-            TableInfo.CREATED_FROM_ENTITY))
-        val _foreignKeysPollPosts: MutableSet<TableInfo.ForeignKey> = mutableSetOf()
-        val _indicesPollPosts: MutableSet<TableInfo.Index> = mutableSetOf()
-        val _infoPollPosts: TableInfo = TableInfo("poll_posts", _columnsPollPosts,
-            _foreignKeysPollPosts, _indicesPollPosts)
-        val _existingPollPosts: TableInfo = read(connection, "poll_posts")
-        if (!_infoPollPosts.equals(_existingPollPosts)) {
-          return RoomOpenDelegate.ValidationResult(false, """
-              |poll_posts(net.wetheGoverned.data.local.entity.PollPostEntity).
-              | Expected:
-              |""".trimMargin() + _infoPollPosts + """
-              |
-              | Found:
-              |""".trimMargin() + _existingPollPosts)
-        }
         val _columnsPollVotes: MutableMap<String, TableInfo.Column> = mutableMapOf()
         _columnsPollVotes.put("id", TableInfo.Column("id", "TEXT", true, 1, null,
             TableInfo.CREATED_FROM_ENTITY))
@@ -370,6 +335,41 @@ public class RoomAppDatabase_Impl : RoomAppDatabase() {
               |
               | Found:
               |""".trimMargin() + _existingPollVotes)
+        }
+        val _columnsPollPosts: MutableMap<String, TableInfo.Column> = mutableMapOf()
+        _columnsPollPosts.put("id", TableInfo.Column("id", "TEXT", true, 1, null,
+            TableInfo.CREATED_FROM_ENTITY))
+        _columnsPollPosts.put("pollId", TableInfo.Column("pollId", "TEXT", true, 0, null,
+            TableInfo.CREATED_FROM_ENTITY))
+        _columnsPollPosts.put("optionId", TableInfo.Column("optionId", "TEXT", true, 0, null,
+            TableInfo.CREATED_FROM_ENTITY))
+        _columnsPollPosts.put("parentPostId", TableInfo.Column("parentPostId", "TEXT", false, 0,
+            null, TableInfo.CREATED_FROM_ENTITY))
+        _columnsPollPosts.put("headline", TableInfo.Column("headline", "TEXT", false, 0, null,
+            TableInfo.CREATED_FROM_ENTITY))
+        _columnsPollPosts.put("authorName", TableInfo.Column("authorName", "TEXT", true, 0, null,
+            TableInfo.CREATED_FROM_ENTITY))
+        _columnsPollPosts.put("content", TableInfo.Column("content", "TEXT", true, 0, null,
+            TableInfo.CREATED_FROM_ENTITY))
+        _columnsPollPosts.put("score", TableInfo.Column("score", "INTEGER", true, 0, null,
+            TableInfo.CREATED_FROM_ENTITY))
+        _columnsPollPosts.put("userVote", TableInfo.Column("userVote", "INTEGER", true, 0, null,
+            TableInfo.CREATED_FROM_ENTITY))
+        _columnsPollPosts.put("createdAt", TableInfo.Column("createdAt", "INTEGER", true, 0, null,
+            TableInfo.CREATED_FROM_ENTITY))
+        val _foreignKeysPollPosts: MutableSet<TableInfo.ForeignKey> = mutableSetOf()
+        val _indicesPollPosts: MutableSet<TableInfo.Index> = mutableSetOf()
+        val _infoPollPosts: TableInfo = TableInfo("poll_posts", _columnsPollPosts,
+            _foreignKeysPollPosts, _indicesPollPosts)
+        val _existingPollPosts: TableInfo = read(connection, "poll_posts")
+        if (!_infoPollPosts.equals(_existingPollPosts)) {
+          return RoomOpenDelegate.ValidationResult(false, """
+              |poll_posts(net.wetheGoverned.data.local.entity.PollPostEntity).
+              | Expected:
+              |""".trimMargin() + _infoPollPosts + """
+              |
+              | Found:
+              |""".trimMargin() + _existingPollPosts)
         }
         val _columnsRepresentativeScorecards: MutableMap<String, TableInfo.Column> = mutableMapOf()
         _columnsRepresentativeScorecards.put("districtId", TableInfo.Column("districtId", "TEXT",
@@ -681,7 +681,7 @@ public class RoomAppDatabase_Impl : RoomAppDatabase() {
     val _shadowTablesMap: MutableMap<String, String> = mutableMapOf()
     val _viewTables: MutableMap<String, Set<String>> = mutableMapOf()
     return InvalidationTracker(this, _shadowTablesMap, _viewTables, "districts",
-        "resident_profiles", "district_polls", "poll_posts", "poll_votes",
+        "resident_profiles", "district_polls", "poll_votes", "poll_posts",
         "representative_scorecards", "scorecard_categories", "candidate_manifestos",
         "manifesto_questions", "district_metrics", "pending_civic_events", "user_accounts",
         "community_posts", "verification_requests")
