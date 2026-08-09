@@ -59,7 +59,8 @@ class WsCivicPublisher(
         }
         
         val signature = try {
-            Secp256k1KeyManager.sign(eventId, privateKey)
+            // Use platform-optimized signer (e.g. nostr-wasm on Web)
+            platformSign(eventId, privateKey)
         } catch (e: Exception) {
             val errorMsg = "❌ CRYPTO FAILURE: Failed to sign event ${eventId.take(8)}: ${e.message}"
             println("WsCivicPublisher: $errorMsg")

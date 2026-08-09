@@ -1,7 +1,8 @@
 package net.wetheGoverned.data.local
 
-import androidx.room.RoomDatabase
+// Minimal expect for cross-platform repository references
+expect abstract class AppDatabase {
+    // Basic structural methods could be added here if needed in common
+}
 
-expect abstract class AppDatabase : RoomDatabase
-
-expect fun getDatabaseBuilder(): RoomDatabase.Builder<AppDatabase>
+expect fun getDatabaseBuilder(): Any

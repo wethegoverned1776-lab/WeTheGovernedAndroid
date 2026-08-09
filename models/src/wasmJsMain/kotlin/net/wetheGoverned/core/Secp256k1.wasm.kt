@@ -65,3 +65,41 @@ private fun jsCompare(a: JsAny, b: JsAny): Int = js("a < b ? -1 : (a > b ? 1 : 0
 
 actual fun CivicBigInt.divideByTwo(): CivicBigInt = CivicBigInt(jsDivideByTwo(this.value))
 private fun jsDivideByTwo(a: JsAny): JsAny = js("a / 2n")
+
+private fun isNostrWasmReady(): Boolean = js("typeof nostrWasm !== 'undefined'")
+private fun isNostrToolsReady(): Boolean = js("typeof NostrTools !== 'undefined'")
+
+/**
+ * Enhanced Secp256k1KeyManager for Wasm using JS tools
+ */
+object WasmNostrSigner {
+    fun sign(eventIdHex: String, privateKeyHex: String): String {
+        return try {
+            if (isNostrWasmReady()) {
+                NostrWasmInstance.sign(eventIdHex, privateKeyHex)
+            } else {
+                Secp256k1KeyManager.sign(eventIdHex, privateKeyHex)
+            }
+        } catch (e: Exception) {
+            Secp256k1KeyManager.sign(eventIdHex, privateKeyHex)
+        }
+    }
+
+    fun deriveXOnlyPubKey(privKeyHex: String): String {
+        return try {
+            if (isNostrToolsReady()) {
+                NostrTools.getPublicKey(privKeyHex)
+            } else {
+                fallbackDerive(privKeyHex)
+            }
+        } catch (e: Exception) {
+            fallbackDerive(privKeyHex)
+        }
+    }
+    
+    private fun fallbackDerive(privKeyHex: String): String {
+        val d0 = CivicBigInt.fromHex(privKeyHex)
+        val P = Secp256k1.multiply(Secp256k1.G, d0)
+        return P.x.toHex().padStart(64, '0')
+    }
+}

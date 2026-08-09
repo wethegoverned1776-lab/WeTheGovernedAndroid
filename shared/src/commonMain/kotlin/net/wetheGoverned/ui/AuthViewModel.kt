@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.Clock
-import net.wetheGoverned.core.Secp256k1KeyManager
+import net.wetheGoverned.core.*
 import net.wetheGoverned.model.UserAccount
 import net.wetheGoverned.model.VerificationTier
 import net.wetheGoverned.repository.AccountRepository
@@ -19,9 +19,9 @@ data class AuthUiState(
     val isAuthenticated: Boolean = false,
     val isRegistered: Boolean = false,
     val selectedDistrictId: String? = null,
-    val selectedDistrictName: String = "No District Selected",
+    val selectedDistrictName: String = "Select District",
     val isPasswordChanged: Boolean = false,
-    val requiresPasswordChange: Boolean = false,
+    val requiresPasswordChange: Boolean = false
 )
 
 open class AuthViewModel(
@@ -93,7 +93,7 @@ open class AuthViewModel(
             if (password.startsWith("nsec1")) {
                 try {
                     val privKeyHex = net.wetheGoverned.core.Bech32Codec.decodeNsec(password)
-                    val pubKeyHex = Secp256k1KeyManager.deriveXOnlyPubKey(privKeyHex)
+                    val pubKeyHex = platformDerivePubKey(privKeyHex)
                     
                     sessionManager.login(
                         pubKeyHex = pubKeyHex,
@@ -110,51 +110,57 @@ open class AuthViewModel(
                             displayName = username.ifBlank { "Nostr User" },
                             federalHouseId = "us-fl-06",
                             tier = VerificationTier.VERIFIED,
-                            joinedAt = Clock.System.now().toEpochMilliseconds(),
-                            isVerified = true
+                            joinedAt = Clock.System.now().toEpochMilliseconds()
                         )
                     )
                     _uiState.update { it.copy(isLoading = false, isAuthenticated = true) }
                     return@launch
                 } catch (e: Exception) {
-                    _uiState.update { it.copy(isLoading = false, error = "Invalid nsec: ${e.message}") }
+                    _uiState.update { it.copy(isLoading = false, error = "Invalid nsec key: ${e.message}") }
                     return@launch
                 }
             }
 
-            val result = accountRepository.login(username, password)
-            result.onSuccess { account ->
-                // Fetch profile to determine tier
-                val profile = residentRepository.getProfile(account.pubKey).getOrNull()
-                
-                // ERR_FIX: Explicitly ensure 'admin' user is VERIFIED if profile not yet loaded or missing
-                val tier = if (username == "admin") VerificationTier.VERIFIED 
-                          else profile?.tier ?: VerificationTier.OBSERVER
-
+            accountRepository.login(username, password).onSuccess { account ->
                 sessionManager.login(
                     pubKeyHex = account.pubKey,
                     privateKeyHex = account.privateKey,
                     districtId = account.districtId,
-                    tier = tier,
-                    displayName = username
+                    displayName = account.username,
+                    tier = VerificationTier.OBSERVER // Initial tier
                 )
-                _uiState.update { it.copy(
-                    isLoading = false, 
-                    isAuthenticated = true,
-                    requiresPasswordChange = account.requiresPasswordChange
-                ) }
+                
+                // Refresh profile
+                residentRepository.getProfile(account.pubKey).onFailure {
+                    residentRepository.createProfile(
+                        net.wetheGoverned.model.ResidentProfile(
+                            pubKey = account.pubKey,
+                            displayName = account.username,
+                            districtId = account.districtId,
+                            tier = VerificationTier.OBSERVER,
+                            joinedAt = Clock.System.now().toEpochMilliseconds()
+                        )
+                    )
+                }
+
+                _uiState.update { 
+                    it.copy(
+                        isLoading = false, 
+                        isAuthenticated = true,
+                        requiresPasswordChange = account.requiresPasswordChange
+                    ) 
+                }
             }.onFailure { e ->
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
         }
     }
 
-    fun changePassword(username: String, newPass: String) {
+    fun changePassword(username: String, newPassword: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            val result = accountRepository.changePassword(username, newPass)
-            result.onSuccess {
-                _uiState.update { it.copy(isLoading = false, isPasswordChanged = true) }
+            accountRepository.changePassword(username, newPassword).onSuccess {
+                _uiState.update { it.copy(isLoading = false, isPasswordChanged = true, requiresPasswordChange = false) }
             }.onFailure { e ->
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
@@ -163,21 +169,21 @@ open class AuthViewModel(
 
     fun loginAsGuest() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            // Requirement: Guest sessions MUST use a deterministic observer key
             sessionManager.login(
-                pubKeyHex = "guest_observer_hex", // Hardcoded identifier
-                privateKeyHex = null,
-                districtId = null, // No district
-                tier = VerificationTier.OBSERVER,
-                displayName = "Observer"
+                pubKeyHex = "guest_observer_hex",
+                privateKeyHex = "0000000000000000000000000000000000000000000000000000000000000001",
+                districtId = "us-fl-06",
+                displayName = "Observer",
+                tier = VerificationTier.OBSERVER
             )
-            _uiState.update { it.copy(isLoading = false, isAuthenticated = true) }
+            _uiState.update { it.copy(isAuthenticated = true) }
         }
     }
 
-    fun clearError() = _uiState.update { it.copy(error = null) }
+    fun clearError() { _uiState.update { it.copy(error = null) } }
 
     fun reset() {
-        _uiState.update { AuthUiState() }
+        _uiState.value = AuthUiState()
     }
 }

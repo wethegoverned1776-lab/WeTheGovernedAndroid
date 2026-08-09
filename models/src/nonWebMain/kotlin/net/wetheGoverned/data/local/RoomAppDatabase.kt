@@ -1,17 +1,19 @@
 package net.wetheGoverned.data.local
 
 import androidx.room.*
-import kotlinx.coroutines.Dispatchers
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import net.wetheGoverned.data.local.dao.*
 import net.wetheGoverned.data.local.entity.*
+import kotlinx.coroutines.Dispatchers
 
 @Database(
     entities = [
         DistrictEntity::class,
         ResidentProfileEntity::class,
         DistrictPollEntity::class,
-        PollPostEntity::class,
         CivicVoteEntity::class,
+        PollPostEntity::class,
         RepresentativeScorecardEntity::class,
         ScorecardCategoryEntity::class,
         CandidateManifestoEntity::class,
@@ -20,13 +22,12 @@ import net.wetheGoverned.data.local.entity.*
         PendingCivicEventEntity::class,
         AccountEntity::class,
         CommunityPostEntity::class,
-        VerificationRequestEntity::class,
+        VerificationRequestEntity::class
     ],
-    version = 11,
+    version = 8,
     exportSchema = false
 )
 @TypeConverters(CivicConverters::class)
-@ConstructedBy(AppDatabaseConstructor::class)
 abstract class RoomAppDatabase : RoomDatabase() {
     abstract fun districtDao(): DistrictDao
     abstract fun residentProfileDao(): ResidentProfileDao
@@ -42,18 +43,17 @@ abstract class RoomAppDatabase : RoomDatabase() {
     abstract fun verificationRequestDao(): VerificationRequestDao
 }
 
-actual typealias AppDatabase = RoomAppDatabase
-
-// The Room compiler generates the `actual` implementations.
-@Suppress("KotlinNoActualForExpect")
-expect object AppDatabaseConstructor : RoomDatabaseConstructor<RoomAppDatabase>
+object AppDatabaseConstructor {
+    fun construct(): RoomAppDatabase {
+        throw RuntimeException("Use getRoomDatabase with builder")
+    }
+}
 
 fun getRoomDatabase(
     builder: RoomDatabase.Builder<RoomAppDatabase>
 ): RoomAppDatabase {
     return builder
-        .fallbackToDestructiveMigration(true)
+        .setDriver(BundledSQLiteDriver())
         .setQueryCoroutineContext(Dispatchers.Default)
         .build()
 }
-

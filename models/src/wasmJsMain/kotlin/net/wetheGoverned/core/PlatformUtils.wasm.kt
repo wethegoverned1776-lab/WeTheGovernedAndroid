@@ -9,3 +9,9 @@ actual fun randomUUID(): String {
 }
 
 actual fun sha256(input: String): String = sha256Native(input.encodeToByteArray()).toHex()
+
+actual fun platformSign(eventIdHex: String, privateKeyHex: String): String = 
+    WasmNostrSigner.sign(eventIdHex, privateKeyHex)
+
+actual fun platformDerivePubKey(privateKeyHex: String): String = 
+    WasmNostrSigner.deriveXOnlyPubKey(privateKeyHex)

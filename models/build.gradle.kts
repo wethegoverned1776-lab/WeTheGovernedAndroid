@@ -35,7 +35,6 @@ kotlin {
         
         val commonMain by getting {
             dependencies {
-                api("androidx.room:room-runtime:2.7.0-alpha11")
                 api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
                 api("org.jetbrains.kotlinx:kotlinx-datetime:0.6.0")
                 api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
