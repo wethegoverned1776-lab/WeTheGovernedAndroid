@@ -160,6 +160,14 @@ class NostrRelayManager(
                 }.body()
             } catch (e: Exception) { null }
 
+            val isPaid = info?.limitation?.payment_required ?: false
+            if (isPaid) {
+                println("🚫 NostrRelayManager: Blacklisting PAID relay: $url")
+                blacklistedRelays.add(url)
+                activeSessions[url]?.let { scope.launch { it.close() } }
+                return
+            }
+
             val endTime = Clock.System.now().toEpochMilliseconds()
             val rtt = endTime - startTime
             
@@ -168,7 +176,7 @@ class NostrRelayManager(
                 rtt = rtt,
                 lastSeen = Clock.System.now().toEpochMilliseconds(),
                 isOnline = true,
-                isPaid = info?.limitation?.payment_required ?: false,
+                isPaid = false,
                 info = info,
                 score = calculateScore(rtt, info)
             )
@@ -195,7 +203,7 @@ class NostrRelayManager(
      */
     private suspend fun refreshPools() {
         val highQuality = relayMetrics.value.values
-            .filter { it.isOnline && !it.isPaid && it.score > 30 }
+            .filter { it.isOnline && !blacklistedRelays.contains(it.url) && it.score > 30 }
             .sortedByDescending { it.score }
 
         // Core Requirement: maintain connections to the top 12 available relays
@@ -227,6 +235,10 @@ class NostrRelayManager(
 
     private suspend fun maintainConnection(url: String) {
         if (_relayStatuses.value[url] == RelayStatus.CONNECTED) return
+        if (blacklistedRelays.contains(url)) {
+            println("🛡️ NostrRelayManager: Aborting connection to blacklisted/paid relay: $url")
+            return
+        }
         
         var failureCount = 0
         while (scope.isActive) {
